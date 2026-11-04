@@ -122,9 +122,9 @@ const CONFIG={
   others:["مهرب","ازاي اسيب","النهاية","مساحات","خسرت نفسي","فاكراه"],   // faint, untappable letters of the other songs
   fallback:{lat:30.0444,lng:31.2357},   // Cairo, when location is refused
   declination:4.5,                      // magnetic → true north (degrees east, Cairo)
-  clipSeconds:15,
+  clipSeconds:14,
   tonightHour:21,                       // daytime: mark where the moon will be at this hour tonight
-  snippet:null                          // e.g. "ya-leil.mp3" next to this page; null = placeholder tone
+  snippet:"ya-leil-snippet.m4a"         // 0:23–0:37 of the song, fades baked in; null = placeholder tone
 };
 /* ================================ */
 const $=id=>document.getElementById(id);
@@ -371,14 +371,17 @@ async function toggleFace(){
 $("face").onclick=toggleFace;
 
 /* ---------- sound: chime on solving, the snippet while recording; both go into the clip ---------- */
-const audio={ctx:null,out:null,dest:null,nodes:[],el:null};
+const audio={ctx:null,out:null,dest:null,nodes:[],el:null,buf:null};
+const snipBytes=CONFIG.snippet?fetch(CONFIG.snippet).then(r=>r.arrayBuffer()).catch(()=>null):null;   // fetched while people play, so the clip starts on the beat
 function audioInit(){const A=window.AudioContext||window.webkitAudioContext;if(!A||audio.ctx)return;audio.ctx=new A();audio.out=audio.ctx.createGain();audio.out.connect(audio.ctx.destination);
-  try{audio.dest=audio.ctx.createMediaStreamDestination();audio.out.connect(audio.dest)}catch(e){}}
+  try{audio.dest=audio.ctx.createMediaStreamDestination();audio.out.connect(audio.dest)}catch(e){}
+  if(snipBytes)snipBytes.then(b=>b&&audio.ctx.decodeAudioData(b)).then(d=>{if(d)audio.buf=d}).catch(()=>{})}
 function chime(){if(!audio.ctx)return;const c=audio.ctx,t=c.currentTime;[880,1318.5,1760].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;
   g.gain.setValueAtTime(0,t+i*.12);g.gain.linearRampToValueAtTime(.12,t+i*.12+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.12+1.6);o.connect(g);g.connect(audio.out);o.start(t+i*.12);o.stop(t+i*.12+1.7)})}
 function playSnippet(){
   if(!audio.ctx)return;stopSnippet();const c=audio.ctx;c.resume();
   const g=c.createGain();g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(1,c.currentTime+.6);g.connect(audio.out);audio.g=g;
+  if(audio.buf){const s=c.createBufferSource();s.buffer=audio.buf;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(1,c.currentTime);s.connect(g);s.start();audio.nodes.push(s);return}   // the fades are in the file
   if(CONFIG.snippet){const el=new Audio(CONFIG.snippet);el.crossOrigin="anonymous";c.createMediaElementSource(el).connect(g);el.play().catch(()=>{});audio.el=el;return}
   const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;lp.connect(g);
   [[110,"sine",.32],[165,"triangle",.12],[220.3,"sine",.1]].forEach(([f,type,v])=>{const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;og.gain.value=v;
