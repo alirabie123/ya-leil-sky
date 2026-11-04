@@ -155,7 +155,7 @@ renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.outputColorSpac
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(70,1,1,60000);scene.add(camera);
 /* the moon as shown: its real place, but when it is low or has set it waits just above the hills, right over the real one, with its letters (the subtitle gives the real rise time) */
-const LOW=9*RAD,withShow=s=>{s.show=altOf(s.moon)>=LOW?s.moon:dirAA(LOW,azOf(s.moon));return s};
+const LOW=17*RAD,withShow=s=>{s.show=altOf(s.moon)>=LOW?s.moon:dirAA(LOW,azOf(s.moon));return s};
 let SKY=withShow(skyAt(Date.now()));
 
 /* sky dome: the cover's greys, a little lighter by day, with the real Milky Way photograph (ESO) always out */
@@ -272,7 +272,7 @@ function textSprite(lines,{dist=19000,deg=3}={}){
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));const hgt=dist*Math.tan(deg*RAD);s.scale.set(hgt*c.width/c.height,hgt,1);return s}
 
 /* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
-const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[[-12,20],[8,30],[-2,9],[13,15],[-10,1]];
+const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[0,3,1,4,2].map(k=>[15*Math.sin(k*1.2566),10.5*Math.cos(k*1.2566)]);   // a ring around the moon (wider than tall), the letters shuffled round it
 let anchorAlt,anchorAz;
 function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
 chooseAnchor();
@@ -330,8 +330,8 @@ function reveal(){
   const c=new THREE.Vector3();seq.forEach(s=>c.add(s.position));c.normalize();
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
   titleLabel=textSprite([ready(WORD)?{img:WORD,h:220,glow:"rgba(190,205,255,.55)",blur:16}:{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:ready(WORD)?16:12});
-  // right under the moon, just below its halo
-  const ta=altOf(SKY.show)-13.5*RAD;titleLabel.position.copy(dirAA(ta>=4*RAD?ta:anchorAlt+40*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
+  // just above the ring of letters
+  titleLabel.position.copy(dirAA(altOf(SKY.show)+23*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
   state="solved";chime();$("rec").classList.add("call");
 }
 
