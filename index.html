@@ -264,9 +264,10 @@ placeMoon();
 const EN=s=>`500 ${s}px -apple-system,Helvetica,Arial,sans-serif`,AR=s=>`400 ${s}px "KA Hand Naskh","Noto Naskh Arabic",serif`;
 function textSprite(lines,{dist=19000,deg=3}={}){
   const c=document.createElement("canvas"),g=c.getContext("2d"),pad=24;let w=0,h=pad;
-  lines.forEach(L=>{g.font=L.font;if("letterSpacing" in g)g.letterSpacing=L.ls||"0px";L.w=g.measureText(L.text).width;L.size=parseInt(L.font.match(/(\d+)px/)[1]);w=Math.max(w,L.w);h+=L.size*1.35});
+  lines.forEach(L=>{if(L.img){L.size=L.h;L.w=L.img.naturalWidth*L.h/L.img.naturalHeight}else{g.font=L.font;if("letterSpacing" in g)g.letterSpacing=L.ls||"0px";L.w=g.measureText(L.text).width;L.size=parseInt(L.font.match(/(\d+)px/)[1])}w=Math.max(w,L.w);h+=L.size*1.35});
   c.width=Math.ceil(w+pad*2);c.height=Math.ceil(h+pad*.4);let y=pad*.6;
-  lines.forEach(L=>{g.font=L.font;if("letterSpacing" in g)g.letterSpacing=L.ls||"0px";g.fillStyle=L.color;g.textBaseline="top";g.shadowColor=L.glow||"rgba(0,0,0,.6)";g.shadowBlur=L.blur||10;g.fillText(L.text,(c.width-L.w)/2,y);y+=L.size*1.35});
+  lines.forEach(L=>{g.shadowColor=L.glow||"rgba(0,0,0,.6)";g.shadowBlur=L.blur||10;
+    if(L.img)g.drawImage(L.img,(c.width-L.w)/2,y,L.w,L.size);else{g.font=L.font;if("letterSpacing" in g)g.letterSpacing=L.ls||"0px";g.fillStyle=L.color;g.textBaseline="top";g.fillText(L.text,(c.width-L.w)/2,y)}y+=L.size*1.35});
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));const hgt=dist*Math.tan(deg*RAD);s.scale.set(hgt*c.width/c.height,hgt,1);return s}
 
@@ -276,7 +277,17 @@ let anchorAlt,anchorAz;
 function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
 chooseAnchor();
 const starDir=i=>{const [da,dh]=OFFS[i%OFFS.length],al=anchorAlt+dh*RAD;return dirAA(al,anchorAz+da*RAD/Math.max(.4,Math.cos(al)))};
-function letterTex(ch){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");
+/* the hand-drawn letters, each in its circle (light ink on transparent), and the whole word for the reveal */
+const IMG=src=>{const i=new Image();i.src=src;return i},GLYPH={"ا":IMG("g-alif.png"),"ل":IMG("g-lam.png"),"ي":IMG("g-ya.png")},WORD=IMG("g-word.png");
+const LSZ=8.5,RING=.34*LSZ*RAD;   // letter sprite size (deg); its circle's radius as an angle, where the constellation lines stop
+const ready=i=>i.complete&&i.naturalWidth>0;
+function letterTex(ch){const im=GLYPH[ch];if(!ready(im))return oldLetterTex(ch);
+  const c=document.createElement("canvas");c.width=c.height=512;const g=c.getContext("2d");
+  const gr=g.createRadialGradient(256,256,0,256,256,150);gr.addColorStop(0,"rgba(225,232,255,.22)");gr.addColorStop(1,"rgba(225,232,255,0)");g.fillStyle=gr;g.fillRect(0,0,512,512);
+  g.shadowColor="rgba(190,205,255,.75)";g.shadowBlur=18;g.drawImage(im,0,0,512,512);g.shadowBlur=6;g.drawImage(im,0,0,512,512);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;return t}
+Promise.all(Object.values(GLYPH).map(i=>i.decode().catch(()=>{}))).then(()=>stars.forEach(s=>{s.material.map=letterTex(s.userData.ch);s.material.needsUpdate=true}));
+function oldLetterTex(ch){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");
   const gr=g.createRadialGradient(128,128,0,128,128,24);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.3,"rgba(225,232,255,.5)");gr.addColorStop(1,"rgba(225,232,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);
   g.font=AR(104);g.textAlign="center";g.textBaseline="middle";g.fillStyle="rgba(243,239,230,.95)";g.shadowColor="rgba(190,205,255,.7)";g.shadowBlur=14;g.fillText(ch,128,48);
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
@@ -284,7 +295,7 @@ const stars=[],faint=[];
 function makeLetters(){
   stars.forEach(s=>scene.remove(s));stars.length=0;
   TITLE.forEach((ch,i)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:letterTex(ch),transparent:true,depthWrite:false}));
-    s.position.copy(starDir(i)).multiplyScalar(18000);s.scale.setScalar(18000*Math.tan(6.4*RAD));s.userData={ch,ph:i*1.3,flash:0};scene.add(s);stars.push(s)});
+    s.position.copy(starDir(i)).multiplyScalar(18000);s.scale.setScalar(18000*Math.tan(LSZ*RAD));s.userData={ch,ph:i*1.3,flash:0};scene.add(s);stars.push(s)});
   faint.forEach(f=>scene.remove(f));faint.length=0;
   CONFIG.others.forEach((title,k)=>{let sd=97+k*31;const r=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};
     const az=anchorAz+(k+1)*(2*Math.PI/7)+(r()-.5)*.3,alt=(22+r()*42)*RAD;
@@ -300,7 +311,7 @@ const segMat=()=>new THREE.ShaderMaterial({transparent:true,depthWrite:false,ble
     void main(){if(vU>uP)discard;float run=pow(.5+.5*sin((vU*3.-uT*.9)*6.2831853),6.);float head=smoothstep(uP-.08,uP,vU)*step(uP,.999);
       float a=(.4+.5*run+head*.9)*uA;gl_FragColor=vec4(vec3(.9,.92,1.)*a,a);}`});
 let seq=[],segs=[],solved=false,shakeT=0,titleLabel=null,state="find";
-function segment(a,b){const pts=[],us=[];for(let k=0;k<=48;k++){pts.push(a.clone().lerp(b,k/48).normalize().multiplyScalar(17900));us.push(k/48)}
+function segment(a,b){const pts=[],us=[],e=Math.min(.45,RING/a.angleTo(b));for(let k=0;k<=48;k++){pts.push(a.clone().lerp(b,e+(1-2*e)*k/48).normalize().multiplyScalar(17900));us.push(k/48)}
   const g=new THREE.BufferGeometry().setFromPoints(pts);g.setAttribute("u",new THREE.Float32BufferAttribute(us,1));
   const l=new THREE.Line(g,segMat());l.userData.t0=performance.now();scene.add(l);return l}
 const spark=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(.9),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));spark.scale.setScalar(900);spark.visible=false;scene.add(spark);
@@ -318,7 +329,7 @@ function tapStar(s){
 function reveal(){
   const c=new THREE.Vector3();seq.forEach(s=>c.add(s.position));c.normalize();
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
-  titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
+  titleLabel=textSprite([ready(WORD)?{img:WORD,h:220,glow:"rgba(190,205,255,.55)",blur:16}:{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:ready(WORD)?16:12});
   // right under the moon, just below its halo
   const ta=altOf(SKY.show)-13.5*RAD;titleLabel.position.copy(dirAA(ta>=4*RAD?ta:anchorAlt+40*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
   state="solved";chime();$("rec").classList.add("call");
@@ -569,7 +580,7 @@ function frame(){
     l.material.uniforms.uA.value=solved?1.35:(shakeT&&now-shakeT<900?.4:1);if(p<1){const a=l.geometry.attributes.position,k=Math.round(p*48);head=new THREE.Vector3(a.getX(k),a.getY(k),a.getZ(k))}});
   spark.visible=!!head;if(head)spark.position.copy(head);
   stars.forEach(s=>{const f=s.userData.flash?Math.max(0,1-(now-s.userData.flash)/600):0,inSeq=seq.includes(s);
-    s.material.opacity=Math.min(1,(inSeq?1:.8+.2*Math.sin(t*1.8+s.userData.ph))+f*.3);s.scale.setScalar(18000*Math.tan((6.4+f*1.2+(inSeq?.4:0))*RAD))});
+    s.material.opacity=Math.min(1,(inSeq?1:.8+.2*Math.sin(t*1.8+s.userData.ph))+f*.3);s.scale.setScalar(18000*Math.tan((LSZ+f*1.4+(inSeq?.5:0))*RAD))});
   faint.forEach(f=>{const b=Math.sin(t*f.userData.sp+f.userData.ph);f.material.opacity=f.userData.base*(.6+.4*b);f.scale.copy(f.userData.s0).multiplyScalar(1+.05*b)});   // a slow glow, each at its own pace
   if(titleLabel)titleLabel.material.opacity=Math.min(1,(now-titleLabel.userData.t0)/1200);
   // face: fades in and fills most of the frame, a ghost in the sky
