@@ -356,20 +356,29 @@ function buildPath(){
 /* ---------- your face in the sky (front camera, optional, stays on the phone) ---------- */
 const faceVideo=document.createElement("video");faceVideo.playsInline=true;faceVideo.muted=true;
 let faceTex=null,faceOn=false,faceK=0;
-const faceMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:null},uA:{value:0}},
+const faceMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:null},uA:{value:0},uMir:{value:1}},
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform sampler2D map;uniform float uA;varying vec2 vUv;
-    void main(){vec3 c=texture2D(map,vec2(1.-vUv.x,vUv.y)).rgb;float g=dot(c,vec3(.3,.59,.11));g=smoothstep(.08,.85,g);   // mirrored, soft grey
+  fragmentShader:`uniform sampler2D map;uniform float uA,uMir;varying vec2 vUv;
+    void main(){vec3 c=texture2D(map,vec2(mix(vUv.x,1.-vUv.x,uMir),vUv.y)).rgb;float g=dot(c,vec3(.3,.59,.11));g=smoothstep(.08,.85,g);   // soft grey; mirrored for the front camera only
       float m=smoothstep(.5,.18,length((vUv-.5)*vec2(1.,.9)));gl_FragColor=vec4(vec3(.78,.82,1.)*g*m*uA,1.);}`});
 const facePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),faceMat);facePlane.renderOrder=50;facePlane.visible=false;camera.add(facePlane);
-async function toggleFace(){
-  if(faceOn){faceOn=false;$("face").setAttribute("aria-pressed","false");return}
+/* one button, three taps: your face (front camera) → what's in front of you (back camera) → off. Both fade into the sky the same way */
+const CAM_ICON={user:$("face").innerHTML,
+  environment:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3.5 8.5h3l1.6-2.2h7.8l1.6 2.2h3v10h-17z"/><circle cx="12" cy="13.2" r="3.4"/></svg>'};
+let camMode=null;
+function stopCam(){const st=faceVideo.srcObject;if(st)st.getTracks().forEach(t=>t.stop());faceVideo.srcObject=null}
+async function setCam(mode){
+  const b=$("face");
+  if(!mode){faceOn=false;camMode=null;setTimeout(()=>{if(!faceOn)stopCam()},900);b.setAttribute("aria-pressed","false");b.innerHTML=CAM_ICON.user;b.setAttribute("aria-label","Add your face to the sky");return}
   try{
-    if(!faceVideo.srcObject){const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:720},height:{ideal:960}},audio:false});faceVideo.srcObject=st;await faceVideo.play();
-      faceTex=new THREE.VideoTexture(faceVideo);faceTex.colorSpace=THREE.SRGBColorSpace;faceMat.uniforms.map.value=faceTex}
-    faceOn=true;facePlane.visible=true;$("face").setAttribute("aria-pressed","true");
-  }catch(e){say(["الكاميرا الأمامية مقفولة","Front camera is blocked · allow it in your browser settings"],3000)}
+    stopCam();const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:mode,width:{ideal:720},height:{ideal:960}},audio:false});faceVideo.srcObject=st;await faceVideo.play();
+    if(!faceTex){faceTex=new THREE.VideoTexture(faceVideo);faceTex.colorSpace=THREE.SRGBColorSpace;faceMat.uniforms.map.value=faceTex}
+    faceMat.uniforms.uMir.value=mode==="user"?1:0;camMode=mode;faceOn=true;facePlane.visible=true;
+    b.setAttribute("aria-pressed","true");b.innerHTML=CAM_ICON[mode];b.setAttribute("aria-label",mode==="user"?"Switch to the back camera":"Turn the camera off");
+    say(mode==="user"?["وشّك في السما · دوس تاني للكاميرا الخلفية","Your face in the sky · tap again for the back camera"]:["اللي قدامك في السما · دوس تاني للقفل","What's in front of you, in the sky · tap again to turn off"],2600);
+  }catch(e){if(mode==="user")say(["الكاميرا مقفولة","Camera is blocked · allow it in your browser settings"],3000);else setCam(null)}
 }
+function toggleFace(){setCam(camMode===null?"user":camMode==="user"?"environment":null)}
 $("face").onclick=toggleFace;
 
 /* ---------- sound: chime on solving, the snippet while recording; both go into the clip ---------- */
