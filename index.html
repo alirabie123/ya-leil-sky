@@ -154,12 +154,14 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuf
 renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.outputColorSpace=THREE.SRGBColorSpace;
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(70,1,1,60000);scene.add(camera);
-let SKY=skyAt(Date.now());
+/* the moon as shown: its real place, but when it is low or has set it waits just above the hills, right over the real one, with its letters (the subtitle gives the real rise time) */
+const LOW=9*RAD,withShow=s=>{s.show=altOf(s.moon)>=LOW?s.moon:dirAA(LOW,azOf(s.moon));return s};
+let SKY=withShow(skyAt(Date.now()));
 
 /* sky dome: the cover's greys, a little lighter by day, with the real Milky Way photograph (ESO) always out */
 const mwTex=new THREE.TextureLoader().load("milkyway-lo.jpg");mwTex.colorSpace=THREE.SRGBColorSpace;mwTex.wrapS=THREE.RepeatWrapping;mwTex.anisotropy=8;
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
-  uniforms:{uSun:{value:SKY.sun},uMoon:{value:SKY.moon},uNGP:{value:SKY.ngp},uGC:{value:SKY.gc},uMW:{value:mwTex},uEtch:{value:1}},
+  uniforms:{uSun:{value:SKY.sun},uMoon:{value:SKY.show},uNGP:{value:SKY.ngp},uGC:{value:SKY.gc},uMW:{value:mwTex},uEtch:{value:1}},
   vertexShader:`varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
   fragmentShader:`uniform vec3 uSun,uMoon,uNGP,uGC;uniform sampler2D uMW;uniform float uEtch;varying vec3 vD;
     float h1(float x){return fract(sin(x*127.1)*43758.5453);}
@@ -254,7 +256,7 @@ const ringMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blendi
       #include <colorspace_fragment>
     }`});
 const haloRing=new THREE.Mesh(new THREE.CircleGeometry(MOON_R*2.8,256),ringMat);scene.add(haloRing);
-function placeMoon(){moon.position.copy(SKY.moon).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
+function placeMoon(){moon.position.copy(SKY.show).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
   haloRing.position.copy(moon.position).multiplyScalar(1.001);haloRing.lookAt(0,0,0)}
 placeMoon();
 
@@ -271,7 +273,7 @@ function textSprite(lines,{dist=19000,deg=3}={}){
 /* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
 const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[[-12,20],[8,30],[-2,9],[13,15],[-10,1]];
 let anchorAlt,anchorAz;
-function chooseAnchor(){anchorAlt=Math.max(altOf(SKY.moon),6*RAD);anchorAz=azOf(SKY.moon)}   // the letters gather around the real moon; when it's low or set they wait just above the hills, right over it
+function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
 chooseAnchor();
 const starDir=i=>{const [da,dh]=OFFS[i%OFFS.length],al=anchorAlt+dh*RAD;return dirAA(al,anchorAz+da*RAD/Math.max(.4,Math.cos(al)))};
 function letterTex(ch){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");
@@ -318,7 +320,7 @@ function reveal(){
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
   titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
   // right under the moon, just below its halo
-  const ta=altOf(SKY.moon)-13.5*RAD;titleLabel.position.copy(dirAA(ta>=4*RAD?ta:anchorAlt+40*RAD,azOf(SKY.moon))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
+  const ta=altOf(SKY.show)-13.5*RAD;titleLabel.position.copy(dirAA(ta>=4*RAD?ta:anchorAlt+40*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
   state="solved";chime();$("rec").classList.add("call");
 }
 
@@ -476,7 +478,7 @@ function guide(){
   const ar=$("arrow"),on=inView(c)||inView(moon.position)||stars.some(st=>inView(st.position));   // on target when the moon or any of its stars is in view
   const down=SKY.moon.y<0,r=down?moonRise():null;
   if(on||rec&&rec.state==="recording"){ar.setAttribute("hidden","");
-    if(state==="find"&&down&&r)say([`القمر تحت الأفق لحد الساعة ${r.ar} · المس النجوم بالترتيب`,`The moon is below the horizon until ${r.en} · tap the stars in order`]);
+    if(state==="find"&&down&&r)say([`القمر بيطلع الساعة ${r.ar} · المس النجوم بالترتيب`,`The moon rises at ${r.en} · tap the stars in order`]);
     else say(SUB[state]||SUB.find);return}
   // off screen: an arrow at the edge and words for the way to turn
   const v=c.clone().applyMatrix4(camera.matrixWorldInverse);let ang=Math.atan2(-v.y,v.x);if(v.z>0&&Math.abs(v.x)<1e-3)ang=-Math.PI/2;
@@ -484,8 +486,7 @@ function guide(){
   ar.removeAttribute("hidden");ar.style.transform=`translate(${ex}px,${ey}px) rotate(${ang+Math.PI/2}rad)`;
   const horiz=Math.abs(Math.cos(ang))>Math.abs(Math.sin(ang));
   const dAr=horiz?(Math.cos(ang)>0?"لف يمين":"لف شمال"):(Math.sin(ang)<0?"ارفع لفوق":"نزّل لتحت"),dEn=horiz?(Math.cos(ang)>0?"turn right":"turn left"):(Math.sin(ang)<0?"tilt up":"tilt down");
-  if(down)say([`القمر ونجومه تحت الأفق · ${dAr}`,`The moon and its stars are below the horizon · ${dEn}`]);
-  else say([`القمر ونجومه هناك · ${dAr}`,`The moon and its stars are that way · ${dEn}`]);
+  say([`القمر ونجومه هناك · ${dAr}`,`The moon and its stars are that way · ${dEn}`]);
 }
 
 /* ---------- compass bar ---------- */
@@ -500,7 +501,7 @@ const clock=new THREE.Clock();let lastSky=0;
 const fwd=new THREE.Vector3();
 function frame(){
   const t=clock.getElapsedTime(),now=performance.now();
-  if(now-lastSky>30000){lastSky=now;SKY=skyAt(Date.now());skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.moon;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
+  if(now-lastSky>30000){lastSky=now;SKY=withShow(skyAt(Date.now()));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
     starsMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;placeMoon();alignGalaxy();
     if(!seq.length&&!solved){chooseAnchor();stars.forEach((s,i)=>s.position.copy(starDir(i)).multiplyScalar(18000))}   // follow the moon until the game starts
     const dayish=SKY.sun.y>-.1;if(dayish&&!pathInfo)buildPath();if(!dayish&&pathObj){scene.remove(pathObj,pathMark);pathObj=pathMark=null;pathInfo=null}
