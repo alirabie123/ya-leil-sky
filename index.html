@@ -396,12 +396,12 @@ function audioInit(){unmuteIOS();const A=window.AudioContext||window.webkitAudio
   if(snipBytes)snipBytes.then(b=>b&&audio.ctx.decodeAudioData(b)).then(d=>{if(d)audio.buf=d}).catch(()=>{})}
 function chime(){if(!audio.ctx)return;const c=audio.ctx,t=c.currentTime;[880,1318.5,1760].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;
   g.gain.setValueAtTime(0,t+i*.12);g.gain.linearRampToValueAtTime(.12,t+i*.12+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.12+1.6);o.connect(g);g.connect(audio.out);o.start(t+i*.12);o.stop(t+i*.12+1.7)})}
-/* ambient: a low drone in D that starts with the game and swells (and opens up) as you turn toward the moon; it steps aside while the snippet plays */
+/* ambient: a low drone in C that starts with the game and swells (and opens up) as you turn toward the moon; it steps aside while the snippet plays */
 const amb={g:null,lp:null,duck:1,last:0};
 function ambientStart(){if(!audio.ctx||amb.g)return;const c=audio.ctx,t=c.currentTime;
   const g=c.createGain();g.gain.setValueAtTime(0,t);g.connect(audio.out);
   const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=420;lp.Q.value=.7;lp.connect(g);
-  [[73.42,"sine",.5,0],[110,"triangle",.16,-4],[146.83,"sawtooth",.05,-7],[146.83,"sawtooth",.05,7],[220,"sine",.06,3],[174.61,"sine",.035,0]].forEach(([f,type,v,det])=>{   // D, A, a detuned D pair, A, F: D minor, open and dark
+  [[65.41,"sine",.5,0],[98,"triangle",.16,-4],[130.81,"sawtooth",.05,-7],[130.81,"sawtooth",.05,7],[196,"sine",.06,3],[155.56,"sine",.035,0]].forEach(([f,type,v,det])=>{   // C, G, a detuned C pair, G, Eb: C minor, open and dark
     const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;o.detune.value=det;og.gain.value=v;
     const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.05+Math.random()*.08;lg.gain.value=v*.5;lfo.connect(lg);lg.connect(og.gain);   // slow breathing
     o.connect(og);og.connect(lp);o.start(t);lfo.start(t)});
@@ -411,8 +411,8 @@ function ambientStart(){if(!audio.ctx||amb.g)return;const c=audio.ctx,t=c.curren
 function ambientUpdate(){if(!amb.g)return;const now=performance.now();if(now-amb.last<120)return;amb.last=now;const t=audio.ctx.currentTime;
   const ang=fwd.angleTo(moon.position.clone().normalize())/RAD,x=Math.max(0,Math.min(1,(70-ang)/62)),k=x*x*(3-2*x);   // 0 looking away, 1 with the moon in the middle
   amb.g.gain.setTargetAtTime((.045+.11*k)*amb.duck,t,.4);amb.lp.frequency.setTargetAtTime(380+1500*k,t,.5)}
-/* notes: each right star rings the next step up a D minor (Nahawand) line; a wrong one thuds; stepping back drops a step */
-const SCALE=[293.66,349.23,392,440,523.25,587.33];   // D F G A C D
+/* notes: each right star rings the next step up a C minor line; a wrong one thuds; stepping back drops a step */
+const SCALE=[261.63,311.13,349.23,392,523.25,622.25];   // C Eb F G C Eb
 let echo=null;
 function note(f,{dur=2.2,vol=.13,type="sine"}={}){if(!audio.ctx||rec&&rec.state==="recording")return;const c=audio.ctx,t=c.currentTime;
   if(!echo){const dl=c.createDelay(1),fb=c.createGain(),wet=c.createGain(),lp=c.createBiquadFilter();dl.delayTime.value=.34;fb.gain.value=.38;wet.gain.value=.35;lp.type="lowpass";lp.frequency.value=2400;
