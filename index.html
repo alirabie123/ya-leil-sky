@@ -404,14 +404,14 @@ function ambientUpdate(){if(!amb.g)return;const now=performance.now();if(now-amb
 /* notes: each right star rings the next step up a D minor (Nahawand) line; a wrong one thuds; stepping back drops a step */
 const SCALE=[293.66,349.23,392,440,523.25,587.33];   // D F G A C D
 let echo=null;
-function note(f,{dur=2.2,vol=.13,type="sine"}={}){if(!audio.ctx)return;const c=audio.ctx,t=c.currentTime;
+function note(f,{dur=2.2,vol=.13,type="sine"}={}){if(!audio.ctx||rec&&rec.state==="recording")return;const c=audio.ctx,t=c.currentTime;
   if(!echo){const dl=c.createDelay(1),fb=c.createGain(),wet=c.createGain(),lp=c.createBiquadFilter();dl.delayTime.value=.34;fb.gain.value=.38;wet.gain.value=.35;lp.type="lowpass";lp.frequency.value=2400;
     dl.connect(lp);lp.connect(fb);fb.connect(dl);lp.connect(wet);wet.connect(audio.out);echo=dl}
   [[1,1],[2.01,.25],[3,.08]].forEach(([m,a])=>{const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=f*m;
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol*a,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dur/m);
     o.connect(g);g.connect(audio.out);g.connect(echo);o.start(t);o.stop(t+dur+.1)})}
 function playSnippet(){
-  if(!audio.ctx)return;stopSnippet();amb.duck=.15;const c=audio.ctx;c.resume();
+  if(!audio.ctx)return;stopSnippet();amb.duck=0;const c=audio.ctx;c.resume();
   const g=c.createGain();g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(1,c.currentTime+.6);g.connect(audio.out);audio.g=g;
   if(audio.buf){const s=c.createBufferSource();s.buffer=audio.buf;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(1,c.currentTime);s.connect(g);s.start();audio.nodes.push(s);return}   // the fades are in the file
   if(CONFIG.snippet){const el=new Audio(CONFIG.snippet);el.crossOrigin="anonymous";c.createMediaElementSource(el).connect(g);el.play().catch(()=>{});audio.el=el;return}
@@ -431,7 +431,8 @@ function startRec(){
   const type=["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
   try{rec=new MediaRecorder(new MediaStream(tracks),type?{mimeType:type,videoBitsPerSecond:8e6}:undefined)}catch(e){return}
   chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
-  rec.onstop=()=>{stopSnippet();clipBlob=new Blob(chunks,{type:rec.mimeType||type||"video/mp4"});const v=$("clip");v.src=URL.createObjectURL(clipBlob);$("sheet").hidden=false;v.play().catch(()=>{})};
+  rec.onstop=()=>{stopSnippet();amb.duck=1;clipBlob=new Blob(chunks,{type:rec.mimeType||type||"video/mp4"});const v=$("clip");v.src=URL.createObjectURL(clipBlob);$("sheet").hidden=false;v.play().catch(()=>{})};
+  amb.duck=0;if(amb.g){const t=audio.ctx.currentTime;amb.g.gain.cancelScheduledValues(t);amb.g.gain.setTargetAtTime(0,t,.04)}   // the drone and notes step out of the clip entirely, at once
   rec.start(250);recT0=performance.now();$("rec").classList.add("on");$("rec").classList.remove("call");
   if(solved)playSnippet();   // the snippet starts with the recording, so every clip opens on the hook
 }
@@ -453,10 +454,16 @@ const m4=new THREE.Matrix4(),vR=new THREE.Vector3(),vU=new THREE.Vector3(),vB=ne
 function onOrient(e){
   if(e.alpha==null||e.beta==null)return;
   let R=rotMatrix(e.alpha*RAD,e.beta*RAD,e.gamma*RAD);
-  if(e.webkitCompassHeading!=null){   // iOS: learn the offset to true north while the phone is held up
-    const upright=Math.abs(e.beta)>50&&Math.abs(e.beta)<130;
+  if(e.webkitCompassHeading!=null){   // iOS: alpha comes from the gyro (smooth, but its zero is arbitrary); the compass gives north but wanders.
+    // So: average the compass over the first 2 s held up, then hold that still. Only a big, lasting disagreement
+    // (the compass recalibrating) eases it back; small compass wobble never moves the sky, which is what made it drift off the moon.
+    const upright=Math.abs(e.beta)>50&&Math.abs(e.beta)<130,now=performance.now();
     if(upright||ORI.offset==null){const v=upright?mul(R,[0,0,-1]):mul(R,[0,1,0]),rel=Math.atan2(v[0],v[1])/RAD,off=wrap(e.webkitCompassHeading+CONFIG.declination-rel);
-      ORI.offset=ORI.offset==null?off:ORI.offset+wrap(off-ORI.offset)*.02}
+      if(ORI.offset==null)ORI.offset=off;
+      if(upright&&!ORI.t0){ORI.t0=now;ORI.sx=0;ORI.sy=0}
+      if(upright&&now-ORI.t0<2000){ORI.sx+=Math.cos(off*RAD);ORI.sy+=Math.sin(off*RAD);ORI.offset=Math.atan2(ORI.sy,ORI.sx)/RAD}
+      else if(upright){const d=wrap(off-ORI.offset);if(Math.abs(d)>20){ORI.far=ORI.far||now;if(now-ORI.far>2500)ORI.offset=wrap(ORI.offset+d*.03)}else ORI.far=0}
+      else if(!ORI.t0)ORI.offset+=wrap(off-ORI.offset)*.02}
   }else if(e.absolute||e.type==="deviceorientationabsolute")ORI.offset=CONFIG.declination;
   if(ORI.offset!=null){const o=-ORI.offset*RAD,c=Math.cos(o),s=Math.sin(o);R=[c*R[0]-s*R[3],c*R[1]-s*R[4],c*R[2]-s*R[5],s*R[0]+c*R[3],s*R[1]+c*R[4],s*R[2]+c*R[5],R[6],R[7],R[8]]}
   const ang=((screen.orientation&&screen.orientation.angle)||window.orientation||0)*RAD;
