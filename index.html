@@ -292,7 +292,8 @@ function makeLetters(){
   // the other six titles: each its own faint constellation, letters strung on a wandering line, scattered round the sky
   CONFIG.others.forEach((title,k)=>{let sd=97+k*31;const r=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};
     const az0=anchorAz+(k+1)*(2*Math.PI/7)+(r()-.5)*.3,alt0=(24+r()*38)*RAD;let da=0,dh=0,head=r()*6.28;const pts=[];
-    [...title].filter(c=>c.trim()).forEach((ch,n)=>{
+    const chars=[...title].filter(c=>c.trim());for(let i=chars.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[chars[i],chars[j]]=[chars[j],chars[i]]}   // shuffled, so the title isn't read straight off the line
+    chars.forEach((ch,n)=>{
       if(n){head+=(r()-.5)*2.4;const step=5.5+r()*3.5;da+=Math.cos(head)*step;dh+=Math.sin(head)*step*.8}   // a random walk: each letter a few degrees on, turning as it goes
       const alt=Math.min(70*RAD,Math.max(18*RAD,alt0+dh*RAD)),dir=dirAA(alt,az0+da*RAD/Math.max(.4,Math.cos(alt)));
       const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:letterTex(ch),transparent:true,depthWrite:false}));sp.scale.setScalar(21000*Math.tan((4.2+r()*1.4)*RAD));
