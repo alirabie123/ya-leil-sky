@@ -115,6 +115,7 @@ body.pre .sub,body.pre .credit,body.pre #arrow{opacity:0}
 
 <script type="module">
 import * as THREE from "./three.module.min.js";
+import {GLTFLoader} from "./GLTFLoader.js";
 /* ============ CONFIG ============ */
 const CONFIG={
   title:"يا ليل",titleEn:"Ya Leil",
@@ -322,9 +323,27 @@ function reveal(){
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
   titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
   // just above the ring of letters
-  titleLabel.position.copy(dirAA(altOf(SKY.show)+19*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
-  state="solved";chime();$("rec").classList.add("call");
+  titleLabel.position.copy(dirAA(altOf(SKY.show)+19*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now()+2800;   // the title comes once the eclipse has closed
+  scene.add(titleLabel);
+  state="solved";chime();eclipseT0=performance.now();$("rec").classList.add("call");
 }
+
+/* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; on the solve it glides in front of the moon and eclipses it ---------- */
+const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD);   // nearer than the moon, ~9° across: its disc hides the moon, the halo ring shows round it as a corona
+const cover=new THREE.Group();cover.visible=false;scene.add(cover);
+const coverKey=new THREE.DirectionalLight(0xf2efe8,4),coverFill=new THREE.AmbientLight(0x9aa4b4,1.1);scene.add(coverKey,coverFill);
+new GLTFLoader().load("ya-leil-cover.glb",g=>{const m=g.scene;m.rotation.x=Math.PI/2;m.scale.setScalar(COVER_S);   // Blender's front (+Y in glTF) turned to face +Z, which lookAt points at us
+  m.traverse(o=>{if(o.material){o.material.envMapIntensity=0;if(o.material.map)o.material.map.anisotropy=8}});cover.add(m)});
+let eclipseT0=0;
+function coverRest(t){return dirAA(altOf(SKY.show)+21*RAD+.6*RAD*Math.sin(t*.4),azOf(SKY.show)+1.2*RAD*Math.sin(t*.23))}
+function placeCover(t,now){
+  const rest=coverRest(t),moonDir=SKY.show.clone();let k=eclipseT0?Math.min(1,(now-eclipseT0)/3200):0;k=k*k*(3-2*k);   // eased glide onto the moon
+  const d=rest.clone().lerp(moonDir,k).normalize();cover.position.copy(d).multiplyScalar(COVER_D);cover.lookAt(0,0,0);
+  cover.rotateZ((1-k)*.18*Math.sin(t*.3));cover.rotateY((1-k)*(.5+.12*Math.sin(t*.27)));cover.rotateX((1-k)*.1*Math.sin(t*.35));   // drifting, three-quarter turned, until it settles flat over the moon
+  coverKey.position.copy(d).multiplyScalar(COVER_D*.15).add(new THREE.Vector3(-5000,7000,0));   // a hard light from our side, high and to the left, raking across the debossed lines
+  coverKey.target=cover;
+  ringMat.uniforms.uA.value*=1+2.2*k;   // the corona: the halo ring flares round the dark disc
+  return k}
 
 /* ---------- the horizon: layered desert hills, see-through ground ---------- */
 const hills=[];
@@ -572,7 +591,7 @@ function frame(){
   stars.forEach(s=>{const f=s.userData.flash?Math.max(0,1-(now-s.userData.flash)/600):0,inSeq=seq.includes(s);
     s.material.opacity=Math.min(1,(inSeq?1:.8+.2*Math.sin(t*1.8+s.userData.ph))+f*.3);s.scale.setScalar(18000*Math.tan((LSZ+f*1.2+(inSeq?.4:0))*RAD))});
   faint.forEach(f=>{const b=Math.sin(t*f.userData.sp+f.userData.ph);f.material.opacity=f.userData.base*(.6+.4*b);f.scale.copy(f.userData.s0).multiplyScalar(1+.05*b)});   // a slow glow, each at its own pace
-  if(titleLabel)titleLabel.material.opacity=Math.min(1,(now-titleLabel.userData.t0)/1200);
+  if(titleLabel)titleLabel.material.opacity=Math.max(0,Math.min(1,(now-titleLabel.userData.t0)/1200));
   // face: fades in and fills most of the frame, a ghost in the sky
   faceK+=((faceOn?1:0)-faceK)*.06;facePlane.visible=faceK>.01;
   skyMat.uniforms.uEnv.value=1-.45*faceK;starsMat.uniforms.uEnv.value=1-.25*faceK;   // the camera reads clearly: the sky steps back under it
@@ -582,6 +601,7 @@ function frame(){
   moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK});ringMat.uniforms.uA.value*=moonK;
   stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});
   if(pathObj)pathObj.visible=pathMark.visible=!pre;
+  cover.visible=moonK>.01&&cover.children.length>0;if(cover.visible)placeCover(t,now);
   if(facePlane.visible){const fh=2*10*Math.tan(camera.fov/2*RAD),ar=faceVideo.videoWidth&&faceVideo.videoHeight?faceVideo.videoWidth/faceVideo.videoHeight:.75;
     if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.08;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.5*faceK}   // fills the screen
     else{facePlane.scale.set(fh*.78*ar,fh*.78,1);facePlane.position.set(0,fh*.04,-10);faceMat.uniforms.uA.value=.6*faceK}}
