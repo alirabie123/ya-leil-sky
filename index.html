@@ -161,9 +161,9 @@ let SKY=withShow(skyAt(Date.now()));
 /* sky dome: the cover's greys, a little lighter by day, with the real Milky Way photograph (ESO) always out */
 const mwTex=new THREE.TextureLoader().load("milkyway-lo.jpg");mwTex.colorSpace=THREE.SRGBColorSpace;mwTex.wrapS=THREE.RepeatWrapping;mwTex.anisotropy=8;
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
-  uniforms:{uSun:{value:SKY.sun},uMoon:{value:SKY.show},uNGP:{value:SKY.ngp},uGC:{value:SKY.gc},uMW:{value:mwTex},uEtch:{value:1}},
+  uniforms:{uSun:{value:SKY.sun},uMoon:{value:SKY.show},uNGP:{value:SKY.ngp},uGC:{value:SKY.gc},uMW:{value:mwTex},uEtch:{value:1},uMK:{value:0},uEnv:{value:1}},
   vertexShader:`varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform vec3 uSun,uMoon,uNGP,uGC;uniform sampler2D uMW;uniform float uEtch;varying vec3 vD;
+  fragmentShader:`uniform vec3 uSun,uMoon,uNGP,uGC;uniform sampler2D uMW;uniform float uEtch,uMK,uEnv;varying vec3 vD;
     float h1(float x){return fract(sin(x*127.1)*43758.5453);}
     void main(){vec3 d=normalize(vD);float h=d.y,ah=abs(h),sy=uSun.y;
       float night=clamp((-sy-.02)/.26,0.,1.),day=clamp((sy+.04)/.14,0.,1.);
@@ -178,26 +178,26 @@ const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
       vec3 mw=texture2D(uMW,vec2(.5-gl/6.2831853,.5+gb/3.14159265)).rgb;mw=mix(vec3(dot(mw,vec3(.3,.59,.11))),mw,.12)*vec3(.97,1.,.95);   // monochrome, like the print
       float wash=1.-.85*dusk*(band*pow(toward,1.2)+.25);
       c+=mw*1.25*wash*max(night,.7)*(h<0.?.45:1.);   // the Milky Way stays, day or night
-      float m=max(dot(d,uMoon),0.);c+=vec3(.06,.06,.06)*pow(m,140.)*(1.-day*.7)+vec3(.008,.008,.008)*pow(m,10.);
+      float m=max(dot(d,uMoon),0.);c+=(vec3(.06,.06,.06)*pow(m,140.)*(1.-day*.7)+vec3(.008,.008,.008)*pow(m,10.))*uMK;
       // etched lines: fine radial strokes spreading out from the moon, like the brushed lines on the cover
       {vec3 mu=normalize(uMoon),ax=normalize(cross(mu,vec3(0.,1.,0.)+1e-4)),ay=cross(ax,mu);
         float ang=atan(dot(d,ay),dot(d,ax)),dist=acos(clamp(dot(d,mu),-1.,1.)),k=ang*286.4789,id=floor(k),f=fract(k);
         float on=step(.62,h1(id)),len=.12+.5*h1(id+3.1),w=.18+.25*h1(id+7.7);
-        c+=vec3(.8,.82,.78)*on*smoothstep(w,0.,abs(f-.5))*smoothstep(.07,.1,dist)*smoothstep(len,len*.4,dist)*.035*uEtch*(1.-day*.3)*(h<0.?.4:1.);}
+        c+=vec3(.8,.82,.78)*on*smoothstep(w,0.,abs(f-.5))*smoothstep(.07,.1,dist)*smoothstep(len,len*.4,dist)*.035*uEtch*uMK*(1.-day*.3)*(h<0.?.4:1.);}
       if(h<0.)c=mix(c,mix(vec3(.005,.0055,.005),vec3(.03,.033,.03),day),smoothstep(0.,.25,-h)*.6);
-      gl_FragColor=vec4(c,1.);
+      gl_FragColor=vec4(c*uEnv,1.);
       #include <colorspace_fragment>
     }`});
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(40000,128,64),skyMat));
 
 /* a sprinkle of twinkling stars, out day and night */
-const starsMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{t:{value:0},px:{value:renderer.getPixelRatio()},uSun:{value:SKY.sun}},
+const starsMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{t:{value:0},px:{value:renderer.getPixelRatio()},uSun:{value:SKY.sun},uEnv:{value:1}},
   vertexShader:`attribute float size,ph;uniform float t,px;uniform vec3 uSun;varying float vA;
     void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;vec3 d=normalize((modelMatrix*vec4(position,1.)).xyz);
       float night=clamp((-uSun.y-.02)/.26,0.,1.);float tw=.6+.4*sin(t*(1.3+ph*.4)+ph*9.);
       float glow=pow(max(dot(normalize(d.xz),normalize(uSun.xz)),0.),2.)*exp(-max(d.y,0.)*5.);
       vA=tw*max(night,.85)*(d.y<0.?.4:1.)*(1.-.9*glow);gl_PointSize=size*px;}`,
-  fragmentShader:`varying float vA;void main(){float d=length(gl_PointCoord-.5);float a=exp(-d*d*26.)+exp(-d*d*5.)*.18;gl_FragColor=vec4(vec3(.95,.96,.93)*a*vA,a*vA);}`});
+  fragmentShader:`uniform float uEnv;varying float vA;void main(){float d=length(gl_PointCoord-.5);float a=(exp(-d*d*26.)+exp(-d*d*5.)*.18)*uEnv;gl_FragColor=vec4(vec3(.95,.96,.93)*a*vA,a*vA);}`});
 {const N=1800,pos=new Float32Array(N*3),sz=new Float32Array(N),ph=new Float32Array(N),v=new THREE.Vector3();
   for(let i=0;i<N;i++){do{v.set(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1)}while(v.lengthSq()>1||v.lengthSq()<.01);v.normalize();
     pos.set([v.x*30000,v.y*30000,v.z*30000],i*3);{const r=Math.random();sz[i]=r>.993?6:r>.95?3.4:Math.pow(Math.random(),2)*2+1.1}ph[i]=Math.random()*6.28}
@@ -272,22 +272,13 @@ function textSprite(lines,{dist=19000,deg=3}={}){
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));const hgt=dist*Math.tan(deg*RAD);s.scale.set(hgt*c.width/c.height,hgt,1);return s}
 
 /* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
-const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[0,3,1,4,2].map(k=>[15*Math.sin(k*1.2566),10.5*Math.cos(k*1.2566)]);   // a ring around the moon (wider than tall), the letters shuffled round it
+const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[0,3,1,4,2].map(k=>[13*Math.sin(k*1.2566),9*Math.cos(k*1.2566)]);   // a ring around the moon (wider than tall), the letters shuffled round it
 let anchorAlt,anchorAz;
 function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
 chooseAnchor();
 const starDir=i=>{const [da,dh]=OFFS[i%OFFS.length],al=anchorAlt+dh*RAD;return dirAA(al,anchorAz+da*RAD/Math.max(.4,Math.cos(al)))};
-/* the hand-drawn letters, each in its circle (light ink on transparent), and the whole word for the reveal */
-const IMG=src=>{const i=new Image();i.src=src;return i},GLYPH={"ا":IMG("g-alif.png"),"ل":IMG("g-lam.png"),"ي":IMG("g-ya.png")},WORD=IMG("g-word.png");
-const LSZ=8.5,RING=.34*LSZ*RAD;   // letter sprite size (deg); its circle's radius as an angle, where the constellation lines stop
-const ready=i=>i.complete&&i.naturalWidth>0;
-function letterTex(ch){const im=GLYPH[ch];if(!ready(im))return oldLetterTex(ch);
-  const c=document.createElement("canvas");c.width=c.height=512;const g=c.getContext("2d");
-  const gr=g.createRadialGradient(256,256,0,256,256,150);gr.addColorStop(0,"rgba(225,232,255,.22)");gr.addColorStop(1,"rgba(225,232,255,0)");g.fillStyle=gr;g.fillRect(0,0,512,512);
-  g.shadowColor="rgba(190,205,255,.75)";g.shadowBlur=18;g.drawImage(im,0,0,512,512);g.shadowBlur=6;g.drawImage(im,0,0,512,512);
-  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;return t}
-Promise.all(Object.values(GLYPH).map(i=>i.decode().catch(()=>{}))).then(()=>stars.forEach(s=>{s.material.map=letterTex(s.userData.ch);s.material.needsUpdate=true}));
-function oldLetterTex(ch){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");
+const LSZ=6.4;   // letter sprite size (deg)
+function letterTex(ch){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");
   const gr=g.createRadialGradient(128,128,0,128,128,24);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.3,"rgba(225,232,255,.5)");gr.addColorStop(1,"rgba(225,232,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);
   g.font=AR(104);g.textAlign="center";g.textBaseline="middle";g.fillStyle="rgba(243,239,230,.95)";g.shadowColor="rgba(190,205,255,.7)";g.shadowBlur=14;g.fillText(ch,128,48);
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
@@ -311,7 +302,7 @@ const segMat=()=>new THREE.ShaderMaterial({transparent:true,depthWrite:false,ble
     void main(){if(vU>uP)discard;float run=pow(.5+.5*sin((vU*3.-uT*.9)*6.2831853),6.);float head=smoothstep(uP-.08,uP,vU)*step(uP,.999);
       float a=(.4+.5*run+head*.9)*uA;gl_FragColor=vec4(vec3(.9,.92,1.)*a,a);}`});
 let seq=[],segs=[],solved=false,shakeT=0,titleLabel=null,state="find";
-function segment(a,b){const pts=[],us=[],e=Math.min(.45,RING/a.angleTo(b));for(let k=0;k<=48;k++){pts.push(a.clone().lerp(b,e+(1-2*e)*k/48).normalize().multiplyScalar(17900));us.push(k/48)}
+function segment(a,b){const pts=[],us=[];for(let k=0;k<=48;k++){pts.push(a.clone().lerp(b,k/48).normalize().multiplyScalar(17900));us.push(k/48)}
   const g=new THREE.BufferGeometry().setFromPoints(pts);g.setAttribute("u",new THREE.Float32BufferAttribute(us,1));
   const l=new THREE.Line(g,segMat());l.userData.t0=performance.now();scene.add(l);return l}
 const spark=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(.9),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));spark.scale.setScalar(900);spark.visible=false;scene.add(spark);
@@ -329,9 +320,9 @@ function tapStar(s){
 function reveal(){
   const c=new THREE.Vector3();seq.forEach(s=>c.add(s.position));c.normalize();
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
-  titleLabel=textSprite([ready(WORD)?{img:WORD,h:220,glow:"rgba(190,205,255,.55)",blur:16}:{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:ready(WORD)?16:12});
+  titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
   // just above the ring of letters
-  titleLabel.position.copy(dirAA(altOf(SKY.show)+23*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
+  titleLabel.position.copy(dirAA(altOf(SKY.show)+19*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
   state="solved";chime();$("rec").classList.add("call");
 }
 
@@ -366,7 +357,7 @@ function buildPath(){
 
 /* ---------- your face in the sky (front camera, optional, stays on the phone) ---------- */
 const faceVideo=document.createElement("video");faceVideo.playsInline=true;faceVideo.muted=true;
-let faceTex=null,faceOn=false,faceK=0;
+let faceTex=null,faceOn=false,faceK=0,moonK=0;
 const faceMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:null},uA:{value:0},uMir:{value:1},uFull:{value:0}},
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
   fragmentShader:`uniform sampler2D map;uniform float uA,uMir,uFull;varying vec2 vUv;
@@ -579,14 +570,21 @@ function frame(){
     l.material.uniforms.uA.value=solved?1.35:(shakeT&&now-shakeT<900?.4:1);if(p<1){const a=l.geometry.attributes.position,k=Math.round(p*48);head=new THREE.Vector3(a.getX(k),a.getY(k),a.getZ(k))}});
   spark.visible=!!head;if(head)spark.position.copy(head);
   stars.forEach(s=>{const f=s.userData.flash?Math.max(0,1-(now-s.userData.flash)/600):0,inSeq=seq.includes(s);
-    s.material.opacity=Math.min(1,(inSeq?1:.8+.2*Math.sin(t*1.8+s.userData.ph))+f*.3);s.scale.setScalar(18000*Math.tan((LSZ+f*1.4+(inSeq?.5:0))*RAD))});
+    s.material.opacity=Math.min(1,(inSeq?1:.8+.2*Math.sin(t*1.8+s.userData.ph))+f*.3);s.scale.setScalar(18000*Math.tan((LSZ+f*1.2+(inSeq?.4:0))*RAD))});
   faint.forEach(f=>{const b=Math.sin(t*f.userData.sp+f.userData.ph);f.material.opacity=f.userData.base*(.6+.4*b);f.scale.copy(f.userData.s0).multiplyScalar(1+.05*b)});   // a slow glow, each at its own pace
   if(titleLabel)titleLabel.material.opacity=Math.min(1,(now-titleLabel.userData.t0)/1200);
   // face: fades in and fills most of the frame, a ghost in the sky
   faceK+=((faceOn?1:0)-faceK)*.06;facePlane.visible=faceK>.01;
+  skyMat.uniforms.uEnv.value=1-.45*faceK;starsMat.uniforms.uEnv.value=1-.25*faceK;   // the camera reads clearly: the sky steps back under it
+  const pre=document.body.classList.contains("pre"),recOn=!!(rec&&rec.state==="recording");
+  hills.forEach(h=>h.m.visible=!recOn);   // the clip is only sky, stars and the moon
+  moonK+=((pre?0:1)-moonK)*.04;skyMat.uniforms.uMK.value=moonK;   // the opening screen is sky and stars; the moon and its letters arrive once you start
+  moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK});ringMat.uniforms.uA.value*=moonK;
+  stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});
+  if(pathObj)pathObj.visible=pathMark.visible=!pre;
   if(facePlane.visible){const fh=2*10*Math.tan(camera.fov/2*RAD),ar=faceVideo.videoWidth&&faceVideo.videoHeight?faceVideo.videoWidth/faceVideo.videoHeight:.75;
-    if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.08;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.3*faceK}   // fills the screen
-    else{facePlane.scale.set(fh*.78*ar,fh*.78,1);facePlane.position.set(0,fh*.04,-10);faceMat.uniforms.uA.value=.42*faceK}}
+    if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.08;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.5*faceK}   // fills the screen
+    else{facePlane.scale.set(fh*.78*ar,fh*.78,1);facePlane.position.set(0,fh*.04,-10);faceMat.uniforms.uA.value=.6*faceK}}
   if(rec&&rec.state==="recording"){const p=Math.min(1,(now-recT0)/(CONFIG.clipSeconds*1000));$("recArc").setAttribute("stroke-dashoffset",String(153.9*(1-p)));if(p>=1)stopRec()}
   else $("recArc").setAttribute("stroke-dashoffset","153.9");
   guide();
