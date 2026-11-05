@@ -339,14 +339,30 @@ function reveal(){
 const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD),COVER_FAR=.55;   // at rest it sits smaller, as if much further away   // nearer than the moon, ~9° across: its disc hides the moon, the halo ring shows round it as a corona
 const cover=new THREE.Group();cover.visible=false;scene.add(cover);
 const coverKey=new THREE.DirectionalLight(0xf2efe8,2.4),coverFill=new THREE.AmbientLight(0x9aa4b4,.55);scene.add(coverKey,coverFill);
+/* it sits in shadow: you see its outline against a faint glow behind it and one lit corner. The light on its face grows day by day until the release (?lit=0..1 previews) */
+const RELEASE=Date.UTC(2026,10,15,19),LIGHT_FROM=Date.UTC(2026,10,1),litQ=new URLSearchParams(location.search).get("lit");
+const coverLit=()=>litQ!==null?Math.max(0,Math.min(1,+litQ)):Math.max(0,Math.min(1,(Date.now()-LIGHT_FROM)/(RELEASE-LIGHT_FROM)));
+const coverCorner=new THREE.PointLight(0xf4f0e6,9,COVER_S*.8,0);coverCorner.position.set(-.47*COVER_S,.47*COVER_S,.1*COVER_S);cover.add(coverCorner);   // a light just off the top-left corner
+const rimTex=(()=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");g.filter="blur(14px)";g.fillStyle="#fff";g.fillRect(40,40,176,176);return new THREE.CanvasTexture(c)})();
+const coverRim=new THREE.Mesh(new THREE.PlaneGeometry(COVER_S*1.4,COVER_S*1.4),new THREE.MeshBasicMaterial({map:rimTex,color:0xc8cfdc,transparent:true,opacity:.2,blending:THREE.AdditiveBlending,depthWrite:false}));
+coverRim.position.z=-.03*COVER_S;cover.add(coverRim);
+const sharpMats=[],ghostMats=[];let sharpRoot=null;
 new GLTFLoader().load("ya-leil-cover.glb",g=>{const m=g.scene;m.rotation.x=Math.PI/2;m.scale.setScalar(COVER_S);   // Blender's front (+Y in glTF) turned to face +Z, which lookAt points at us
-  m.traverse(o=>{if(o.material){o.material.envMapIntensity=0;if(o.material.map)o.material.map.anisotropy=8}});cover.add(m)});
+  m.traverse(o=>{if(o.material){o.material.envMapIntensity=0;o.material.transparent=true;if(o.material.map)o.material.map.anisotropy=8;sharpMats.push(o.material)}});cover.add(m);sharpRoot=m;
+  // the blur: soft copies of the sleeve, a touch apart, with a blurred print; they fade out as it comes into focus over the moon
+  const blurMap=new Map();
+  [[0,0,.5],...[...Array(8)].map((_,i)=>[Math.cos(i*.785)*.014,Math.sin(i*.785)*.014,.13])].forEach(([dx,dy,a])=>{const gm=m.clone();gm.position.set(dx*COVER_S,dy*COVER_S,0);
+    gm.traverse(o=>{if(!o.material)return;const mt=o.material.clone();mt.normalMap=null;mt.depthWrite=false;
+      if(mt.map){if(!blurMap.has(mt.map)){const im=mt.map.image,c=document.createElement("canvas");c.width=c.height=512;const g2=c.getContext("2d");g2.filter="blur(6px)";g2.drawImage(im,0,0,512,512);const bt=new THREE.CanvasTexture(c);bt.colorSpace=THREE.SRGBColorSpace;bt.flipY=mt.map.flipY;blurMap.set(mt.map,bt)}mt.map=blurMap.get(mt.map)}
+      mt.userData.a=a;o.material=mt;ghostMats.push(mt)});cover.add(gm)})});
 let eclipseT0=0;
 function coverRest(t){return dirAA(38*RAD+.5*RAD*Math.sin(t*.31),azOf(SKY.show)+70*RAD+1*RAD*Math.sin(t*.19))}   // far off in its own part of the sky, high and well away from the moon: something to find
 function placeCover(t,now){
   const rest=coverRest(t),moonDir=SKY.show.clone();let k=eclipseT0?Math.min(1,(now-eclipseT0)/4200):0;k=k*k*(3-2*k);   // eased glide onto the moon
   const d=rest.clone().lerp(moonDir,k).normalize();cover.position.copy(d).multiplyScalar(COVER_D);cover.scale.setScalar(COVER_FAR+(1-COVER_FAR)*k);cover.lookAt(0,0,0);
-  cover.rotateZ((1-k)*.18*Math.sin(t*.3));cover.rotateY((1-k)*(.5+.12*Math.sin(t*.27)));cover.rotateX((1-k)*.1*Math.sin(t*.35));   // drifting, three-quarter turned, until it settles flat over the moon
+  cover.rotateZ((1-k)*(.32*Math.sin(t*.21)+.08*Math.sin(t*.53)));cover.rotateY((1-k)*(.45+.4*Math.sin(t*.17)));cover.rotateX((1-k)*(.24*Math.sin(t*.29)));   // turning slowly as it drifts, until it settles flat over the moon
+  const lit=coverLit();coverKey.intensity=.12+6*Math.pow(lit,1.6);coverFill.intensity=.06+1.4*Math.pow(lit,1.6);coverCorner.intensity=7+5*lit;coverRim.material.opacity=.26+.16*lit+.2*k;
+  sharpMats.forEach(m=>m.opacity=k);if(sharpRoot)sharpRoot.visible=k>.01;ghostMats.forEach(m=>m.opacity=m.userData.a*(1-k));   // blurred far off, sharp once it covers the moon
   coverKey.position.copy(d).multiplyScalar(COVER_D*.15).add(new THREE.Vector3(-5000,7000,0));   // a hard light from our side, high and to the left, raking across the debossed lines
   coverKey.target=cover;
   ringMat.uniforms.uA.value*=1+2.2*k;   // the corona: the halo ring flares round the dark disc
@@ -608,7 +624,7 @@ function frame(){
   moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK});ringMat.uniforms.uA.value*=moonK;
   stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});faintLines.forEach(l=>{l.visible=moonK>.01;l.material.opacity=l.userData.base*moonK});
   if(pathObj)pathObj.visible=pathMark.visible=!pre;
-  cover.visible=moonK>.01&&cover.children.length>0;if(cover.visible)placeCover(t,now);
+  cover.visible=moonK>.01&&!!sharpRoot;if(cover.visible)placeCover(t,now);
   if(facePlane.visible){const fh=2*10*Math.tan(camera.fov/2*RAD),ar=faceVideo.videoWidth&&faceVideo.videoHeight?faceVideo.videoWidth/faceVideo.videoHeight:.75;
     if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.08;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.5*faceK}   // fills the screen
     else{facePlane.scale.set(fh*.78*ar,fh*.78,1);facePlane.position.set(0,fh*.04,-10);faceMat.uniforms.uA.value=.6*faceK}}
@@ -632,7 +648,7 @@ const upgrade=(tex,url)=>new THREE.TextureLoader().load(url,t=>{tex.image=t.imag
 const sharpen=()=>{upgrade(mwTex,"milkyway-md.jpg");upgrade(moonTex,"moon-color.jpg");upgrade(coverTex,"cover-md.jpg")};
 document.readyState==="complete"?sharpen():addEventListener("load",sharpen,{once:true});   // as soon as the small ones are in
 let fullMW=false;setInterval(()=>{if(!fullMW&&!document.body.classList.contains("pre")&&ZOOM.k<.75){fullMW=true;upgrade(mwTex,"milkyway.jpg")}},2000);   // the full-size Milky Way only once someone zooms in
-window.__sky={stars,tapStar,onOrient,ORI,amb,facePlane,faceVideo,renderer,get state(){return state}};   // test handle
+window.__sky={stars,tapStar,cover,camera,onOrient,ORI,amb,facePlane,faceVideo,renderer,get state(){return state}};   // test handle
 </script>
 </body>
 </html>
