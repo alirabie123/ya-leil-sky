@@ -330,12 +330,11 @@ function reveal(){
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
   titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
   // just above the ring of letters
-  titleLabel.position.copy(dirAA(altOf(SKY.show)+19*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now()+3800;   // the title comes once the eclipse has closed
-  scene.add(titleLabel);
-  state="solved";chime();eclipseT0=performance.now();$("rec").classList.add("call");
+  titleLabel.position.copy(dirAA(altOf(SKY.show)+26*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
+  state="solved";chime();$("rec").classList.add("call");
 }
 
-/* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; on the solve it glides in front of the moon and eclipses it ---------- */
+/* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; it stays out there, in shadow, brightening toward the release ---------- */
 const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD),COVER_FAR=.55;   // at rest it sits smaller, as if much further away   // nearer than the moon, ~9° across: its disc hides the moon, the halo ring shows round it as a corona
 const cover=new THREE.Group();cover.visible=false;scene.add(cover);
 const coverKey=new THREE.DirectionalLight(0xf2efe8,2.4),coverFill=new THREE.AmbientLight(0x9aa4b4,.55);scene.add(coverKey,coverFill);
