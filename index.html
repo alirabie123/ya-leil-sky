@@ -347,7 +347,7 @@ const rimTex=(()=>{const c=document.createElement("canvas");c.width=c.height=256
 const coverRim=new THREE.Mesh(new THREE.PlaneGeometry(COVER_S*1.4,COVER_S*1.4),new THREE.MeshBasicMaterial({map:rimTex,color:0xc8cfdc,transparent:true,opacity:.2,blending:THREE.AdditiveBlending,depthWrite:false}));
 coverRim.position.z=-.03*COVER_S;cover.add(coverRim);
 const sharpMats=[],ghostMats=[];let sharpRoot=null;
-new GLTFLoader().load("ya-leil-cover.glb",g=>{const m=g.scene;m.rotation.x=Math.PI/2;m.scale.setScalar(COVER_S);   // Blender's front (+Y in glTF) turned to face +Z, which lookAt points at us
+new GLTFLoader().load("ya-leil-cover.glb?v=2",g=>{const m=g.scene;m.rotation.x=Math.PI/2;m.scale.setScalar(COVER_S);   // Blender's front (+Y in glTF) turned to face +Z, which lookAt points at us
   m.traverse(o=>{if(o.material){o.material.envMapIntensity=0;o.material.transparent=true;if(o.material.map)o.material.map.anisotropy=8;sharpMats.push(o.material)}});cover.add(m);sharpRoot=m;
   // the blur: soft copies of the sleeve, a touch apart, with a blurred print; they fade out as it comes into focus over the moon
   const blurMap=new Map();
