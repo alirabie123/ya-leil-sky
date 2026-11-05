@@ -273,7 +273,7 @@ function textSprite(lines,{dist=19000,deg=3}={}){
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));const hgt=dist*Math.tan(deg*RAD);s.scale.set(hgt*c.width/c.height,hgt,1);return s}
 
 /* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
-const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[0,3,1,4,2].map(k=>[13*Math.sin(k*1.2566),9*Math.cos(k*1.2566)]);   // a ring around the moon (wider than tall), the letters shuffled round it
+const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[0,1,2,3,4].map(k=>{const a=(100-k*50)*RAD;return [13*Math.sin(a),9*Math.cos(a)]});   // an arc over the moon, read right to left like the word, so the lines trace a crescent
 let anchorAlt,anchorAz;
 function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
 chooseAnchor();
@@ -323,22 +323,22 @@ function reveal(){
   const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
   titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
   // just above the ring of letters
-  titleLabel.position.copy(dirAA(altOf(SKY.show)+19*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now()+2800;   // the title comes once the eclipse has closed
+  titleLabel.position.copy(dirAA(altOf(SKY.show)+19*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now()+3800;   // the title comes once the eclipse has closed
   scene.add(titleLabel);
   state="solved";chime();eclipseT0=performance.now();$("rec").classList.add("call");
 }
 
 /* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; on the solve it glides in front of the moon and eclipses it ---------- */
-const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD);   // nearer than the moon, ~9° across: its disc hides the moon, the halo ring shows round it as a corona
+const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD),COVER_FAR=.55;   // at rest it sits smaller, as if much further away   // nearer than the moon, ~9° across: its disc hides the moon, the halo ring shows round it as a corona
 const cover=new THREE.Group();cover.visible=false;scene.add(cover);
-const coverKey=new THREE.DirectionalLight(0xf2efe8,4),coverFill=new THREE.AmbientLight(0x9aa4b4,1.1);scene.add(coverKey,coverFill);
+const coverKey=new THREE.DirectionalLight(0xf2efe8,2.4),coverFill=new THREE.AmbientLight(0x9aa4b4,.55);scene.add(coverKey,coverFill);
 new GLTFLoader().load("ya-leil-cover.glb",g=>{const m=g.scene;m.rotation.x=Math.PI/2;m.scale.setScalar(COVER_S);   // Blender's front (+Y in glTF) turned to face +Z, which lookAt points at us
   m.traverse(o=>{if(o.material){o.material.envMapIntensity=0;if(o.material.map)o.material.map.anisotropy=8}});cover.add(m)});
 let eclipseT0=0;
-function coverRest(t){return dirAA(altOf(SKY.show)+21*RAD+.6*RAD*Math.sin(t*.4),azOf(SKY.show)+1.2*RAD*Math.sin(t*.23))}
+function coverRest(t){return dirAA(38*RAD+.5*RAD*Math.sin(t*.31),azOf(SKY.show)+70*RAD+1*RAD*Math.sin(t*.19))}   // far off in its own part of the sky, high and well away from the moon: something to find
 function placeCover(t,now){
-  const rest=coverRest(t),moonDir=SKY.show.clone();let k=eclipseT0?Math.min(1,(now-eclipseT0)/3200):0;k=k*k*(3-2*k);   // eased glide onto the moon
-  const d=rest.clone().lerp(moonDir,k).normalize();cover.position.copy(d).multiplyScalar(COVER_D);cover.lookAt(0,0,0);
+  const rest=coverRest(t),moonDir=SKY.show.clone();let k=eclipseT0?Math.min(1,(now-eclipseT0)/4200):0;k=k*k*(3-2*k);   // eased glide onto the moon
+  const d=rest.clone().lerp(moonDir,k).normalize();cover.position.copy(d).multiplyScalar(COVER_D);cover.scale.setScalar(COVER_FAR+(1-COVER_FAR)*k);cover.lookAt(0,0,0);
   cover.rotateZ((1-k)*.18*Math.sin(t*.3));cover.rotateY((1-k)*(.5+.12*Math.sin(t*.27)));cover.rotateX((1-k)*.1*Math.sin(t*.35));   // drifting, three-quarter turned, until it settles flat over the moon
   coverKey.position.copy(d).multiplyScalar(COVER_D*.15).add(new THREE.Vector3(-5000,7000,0));   // a hard light from our side, high and to the left, raking across the debossed lines
   coverKey.target=cover;
