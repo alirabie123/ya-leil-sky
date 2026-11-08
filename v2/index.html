@@ -182,7 +182,7 @@ const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
       vec3 mw=texture2D(uMW,vec2(.5-gl/6.2831853,.5+gb/3.14159265)).rgb;mw=mix(vec3(dot(mw,vec3(.3,.59,.11))),mw,.12)*vec3(.97,1.,.95);{float lm=dot(mw,vec3(.3,.59,.11));mw*=smoothstep(.035,.2,lm)*1.35;}   // monochrome, like the print
       float wash=1.-.85*dusk*(band*pow(toward,1.2)+.25);
       c+=mw*1.25*wash*max(night,.7)*(h<0.?.45:1.);   // the Milky Way stays, day or night
-      float m=max(dot(d,uMoon),0.);c+=(vec3(.06,.06,.06)*pow(m,140.)*(1.-day*.7)+vec3(.008,.008,.008)*pow(m,10.))*uMK;
+      float m=max(dot(d,uMoon),0.);c+=(vec3(.016,.017,.019)*pow(m,400.)*(1.-day*.7)+vec3(.0035,.004,.0048)*pow(m,14.))*uMK;
       // etched lines: fine radial strokes spreading out from the moon, like the brushed lines on the cover
       {vec3 mu=normalize(uMoon),ax=normalize(cross(mu,vec3(0.,1.,0.)+1e-4)),ay=cross(ax,mu);
         float ang=atan(dot(d,ay),dot(d,ax)),dist=acos(clamp(dot(d,mu),-1.,1.)),k=ang*286.4789,id=floor(k),f=fract(k);
@@ -269,7 +269,7 @@ const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.Shad
 scene.add(moon);
 const glowTex=a=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d"),gr=g.createRadialGradient(128,128,0,128,128,128);
   gr.addColorStop(0,`rgba(235,235,255,${a})`);gr.addColorStop(.3,`rgba(235,235,255,${a*.3})`);gr.addColorStop(1,"rgba(235,235,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)};
-const moonGlow=[[2.0,.22],[4.5,.05]].map(([s,a])=>{const h=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(a),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));h.scale.setScalar(MOON_R*s*2);scene.add(h);return h});
+const moonGlow=[[1.45,.09],[3.2,.018]].map(([s,a])=>{const h=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(a),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));h.scale.setScalar(MOON_R*s*2);scene.add(h);return h});
 /* the halo: the real moon becomes the cover's centre circle, wrapped in the cover's flat band and ribbed ring */
 const coverTex=new THREE.TextureLoader().load("cover-lo.jpg");coverTex.colorSpace=THREE.SRGBColorSpace;coverTex.anisotropy=8;
 const ringMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:coverTex},uRot:{value:0},uA:{value:1}},
