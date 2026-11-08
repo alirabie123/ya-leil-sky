@@ -167,7 +167,7 @@ const mwTex=new THREE.TextureLoader().load("milkyway-lo.jpg");mwTex.colorSpace=T
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
   uniforms:{uSun:{value:SKY.sun},uMoon:{value:SKY.show},uNGP:{value:SKY.ngp},uGC:{value:SKY.gc},uMW:{value:mwTex},uEtch:{value:0},uMK:{value:0},uEnv:{value:1}},
   vertexShader:`varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform vec3 uSun,uMoon,uNGP,uGC;uniform sampler2D uMW;uniform float uEtch,uMK,uEnv;varying vec3 vD;
+  fragmentShader:`uniform vec3 uSun,uMoon,uNGP,uGC;uniform sampler2D uMW;uniform float uEtch,uMK,uEnv;varying vec3 vD;float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hs(i),hs(i+vec2(1,0)),f.x),mix(hs(i+vec2(0,1)),hs(i+vec2(1,1)),f.x),f.y);}float fbm(vec2 p){float v=0.,a=.5;for(int k=0;k<5;k++){v+=a*vn(p);p*=2.03;a*=.5;}return v;}
     float h1(float x){return fract(sin(x*127.1)*43758.5453);}
     void main(){vec3 d=normalize(vD);float h=d.y,ah=abs(h),sy=uSun.y;
       float night=clamp((-sy-.02)/.26,0.,1.),day=clamp((sy+.04)/.14,0.,1.);
@@ -181,7 +181,7 @@ const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
       vec3 e2=normalize(cross(uNGP,uGC));float gb=asin(clamp(dot(d,uNGP),-1.,1.)),gl=atan(dot(d,e2),dot(d,uGC));
       vec3 mw=texture2D(uMW,vec2(.5-gl/6.2831853,.5+gb/3.14159265)).rgb;mw=mix(vec3(dot(mw,vec3(.3,.59,.11))),mw,.12)*vec3(.97,1.,.95);{float lm=dot(mw,vec3(.3,.59,.11));mw*=smoothstep(.035,.2,lm)*1.35;}   // monochrome, like the print
       float wash=1.-.85*dusk*(band*pow(toward,1.2)+.25);
-      c+=mw*1.25*wash*max(night,.7)*(h<0.?.45:1.);   // the Milky Way stays, day or night
+      {float lc=cos(gl),core=pow(.5+.5*lc,2.4),w=.1+.06*core;vec2 q=vec2(gl*3.,gb*9.);float cloud=smoothstep(.25,.85,fbm(q+3.1))*.75+.25;float bandMW=exp(-gb*gb/(2.*w*w))*(.2+.8*core)*cloud;float rift=exp(-pow(gb+.012,2.)/(2.*.022*.022))*smoothstep(-.3,.7,lc)*smoothstep(.35,.7,fbm(q*1.7+9.))*.6;c+=vec3(.9,.92,1.)*.019*bandMW*(1.-rift)*wash*night*step(0.,h)*smoothstep(0.,.1,h);}   // the Milky Way stays, day or night
       float m=max(dot(d,uMoon),0.);c+=(vec3(.016,.017,.019)*pow(m,400.)*(1.-day*.7)+vec3(.0035,.004,.0048)*pow(m,14.))*uMK;
       // etched lines: fine radial strokes spreading out from the moon, like the brushed lines on the cover
       {vec3 mu=normalize(uMoon),ax=normalize(cross(mu,vec3(0.,1.,0.)+1e-4)),ay=cross(ax,mu);
