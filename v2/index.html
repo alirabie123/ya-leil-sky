@@ -418,7 +418,7 @@ function dramaFrame(now,t){
   else window.__dim=1;
   // the calligraphy writes itself right to left from 1.5 s, the date settles in after
   const u=titleLabel.material.uniforms,wp=R?1:ease((d-1.5)/1.9);u.uP.value=R?1:Math.min(1.001,(d-1.5)/1.9);u.uD.value=R?Math.min(1,d/1.2):ease((d-3.3)/.9);u.uO.value=R?Math.min(1,d/1.2):1;
-  titleLabel.lookAt(0,0,0);titleLabel.scale.setScalar(.96+.04*wp)}
+  titleLabel.quaternion.copy(camera.quaternion);titleLabel.scale.setScalar(.96+.04*wp)}
 
 function reveal(){
   const c=new THREE.Vector3();seq.forEach(s=>c.add(s.position));c.normalize();
