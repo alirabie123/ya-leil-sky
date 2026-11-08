@@ -648,7 +648,7 @@ function frame(){
     const prev=ZOOM.k;ZOOM.k+=(ZOOM.t-ZOOM.k)*.12;const f=ZOOM.base*ZOOM.k;
     if(Math.abs(camera.fov-f)>1e-4){camera.fov=f;camera.updateProjectionMatrix()}
     const w=reduced?0:(prev-ZOOM.k)/Math.max(.05,ZOOM.k)*7;ZOOM.warp+=(w-ZOOM.warp)*.35;streakMat.uniforms.uW.value=ZOOM.warp;
-    stamp.visible=!document.body.classList.contains("pre");
+    stamp.visible=solved&&!document.body.classList.contains("pre");
     const fh=2*10*Math.tan(camera.fov/2*RAD);stamp.position.set(0,fh/2-fh*.06,-10);stamp.scale.copy(stamp.userData.s0).multiplyScalar(Math.tan(camera.fov/2*RAD)/Math.tan(36*RAD))}
   if(ORI.ok){ORI.q.slerp(ORI.target,.25);camera.quaternion.copy(ORI.q)}
   else{if(!drag){yaw+=vy;pitch+=vp;vy*=.92;vp*=.92;if(document.body.classList.contains("pre")&&!reduced)yaw+=.00035}   /* the start screen: a slow drift across the sky */pitch=Math.max(-40*RAD,Math.min(85*RAD,pitch));camera.lookAt(dirAA(pitch,yaw))}
