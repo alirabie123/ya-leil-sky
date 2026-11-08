@@ -261,10 +261,10 @@ const setZoom=v=>{ZOOM.t=Math.max(ZOOM.min,Math.min(ZOOM.max,v))};window.__setZo
 const moonTex=new THREE.TextureLoader().load("moon-lo.jpg");moonTex.colorSpace=THREE.SRGBColorSpace;moonTex.anisotropy=8;
 const MOON_D=20000,MOON_R=MOON_D*Math.tan(2.3*RAD);
 const moonH=new THREE.TextureLoader().load("moon-height.png");moonH.wrapS=THREE.RepeatWrapping;moonH.anisotropy=8;
-const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.ShaderMaterial({uniforms:{map:{value:moonTex},hmap:{value:moonH},uL:{value:SKY.sun},uTx:{value:new THREE.Vector2(1/1440,1/720)},uBump:{value:3.2}},
+const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.ShaderMaterial({uniforms:{map:{value:moonTex},hmap:{value:moonH},uL:{value:SKY.sun},uTx:{value:new THREE.Vector2(1/1440,1/720)},uBump:{value:3.2},uBoost:{value:1}},
   vertexShader:`varying vec2 vUv;varying vec3 vN,vP,vAx;void main(){vUv=uv;vN=normalize((modelMatrix*vec4(normal,0.)).xyz);vAx=normalize((modelMatrix*vec4(0.,1.,0.,0.)).xyz);
     vec4 w=modelMatrix*vec4(position,1.);vP=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader:`uniform sampler2D map,hmap;uniform vec3 uL;uniform vec2 uTx;uniform float uBump;varying vec2 vUv;varying vec3 vN,vP,vAx;
+  fragmentShader:`uniform sampler2D map,hmap;uniform vec3 uL;uniform vec2 uTx;uniform float uBump,uBoost;varying vec2 vUv;varying vec3 vN,vP,vAx;
     void main(){vec3 n=normalize(vN),L=normalize(uL),V=normalize(cameraPosition-vP);
       vec3 east=normalize(cross(vAx,n)),north=normalize(cross(n,east));
       float hx=texture2D(hmap,vUv+vec2(uTx.x,0.)).r-texture2D(hmap,vUv-vec2(uTx.x,0.)).r;
@@ -275,7 +275,7 @@ const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.Shad
       vec3 alb=texture2D(map,vUv).rgb;
       float es=.028*pow(clamp(.5-.5*dot(L,V),0.,1.),1.5)*ce;                       // earthshine: strongest at a thin crescent
       float night=1.-smoothstep(-.05,.1,dot(n,L));
-      gl_FragColor=vec4(alb*(ls*2.6+es*night*3.+.01),1.);
+      gl_FragColor=vec4(alb*(ls*2.6+es*night*3.+.01)*uBoost,1.);
       #include <colorspace_fragment>
     }`}));
 scene.add(moon);
@@ -391,7 +391,7 @@ const meteorTex=(()=>{const c=document.createElement("canvas");c.width=512;c.hei
 function swell(){if(!audio.ctx)return;const c=audio.ctx,t=c.currentTime;[55,82.4,110].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type=i?"sine":"triangle";o.frequency.value=f;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09/(i+1),t+.25);g.gain.exponentialRampToValueAtTime(.0001,t+4.2);o.connect(g);g.connect(audio.out||c.destination);o.start(t);o.stop(t+4.4)})}
 function dramaBegin(){dramaT0=performance.now();dramaFrom=seq.map(s=>s.position.clone());dramaZ0=ZOOM.t;
-  if(!shock){const c=document.createElement("canvas");c.width=c.height=512;const g=c.getContext("2d"),gr=g.createRadialGradient(256,256,150,256,256,256);gr.addColorStop(0,"rgba(230,236,255,0)");gr.addColorStop(.72,"rgba(230,236,255,.0)");gr.addColorStop(.86,"rgba(238,242,255,.55)");gr.addColorStop(.9,"rgba(255,255,255,.9)");gr.addColorStop(.95,"rgba(230,236,255,.25)");gr.addColorStop(1,"rgba(230,236,255,0)");g.fillStyle=gr;g.fillRect(0,0,512,512);const tx=new THREE.CanvasTexture(c);tx.colorSpace=THREE.SRGBColorSpace;shock=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));scene.add(shock)}
+  if(!shock){const mk=(f)=>{const c=document.createElement("canvas");c.width=c.height=512;const g=c.getContext("2d");f(g);const tx=new THREE.CanvasTexture(c);tx.colorSpace=THREE.SRGBColorSpace;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false}));sp.renderOrder=65;scene.add(sp);return sp};const glow=mk(g=>{const im=g.createImageData(512,512);for(let y=0;y<512;y++)for(let x=0;x<512;x++){const r=Math.hypot(x-255.5,y-255.5)/256,v=Math.max(0,Math.exp(-r*5.5)*1.0+Math.exp(-r*14)*.8-.004*(1-Math.min(1,r)))*(1-Math.pow(Math.min(1,r),6)),k=(y*512+x)*4;im.data[k]=232;im.data[k+1]=238;im.data[k+2]=255;im.data[k+3]=Math.min(255,v*255)}g.putImageData(im,0,0)});const burst=mk(g=>{g.translate(256,256);g.globalCompositeOperation="lighter";for(let i=0;i<14;i++){const ang=i/14*Math.PI*2+(i%2?.11:0),len=(i%3?150:240)*(0.75+0.25*Math.sin(i*2.7));g.save();g.rotate(ang);const gr=g.createLinearGradient(0,0,len,0);gr.addColorStop(0,"rgba(255,255,255,.55)");gr.addColorStop(.25,"rgba(235,240,255,.18)");gr.addColorStop(1,"rgba(235,240,255,0)");g.fillStyle=gr;g.fillRect(0,-1.1,len,2.2);g.restore()}});shock={glow,burst}}
   meteors.forEach(m=>scene.remove(m));meteors=[0,1].map(i=>{const m=new THREE.Sprite(new THREE.SpriteMaterial({map:meteorTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0}));m.visible=false;scene.add(m);return m});
   setTimeout(swell,1150)}
 const ease=x=>x<=0?0:x>=1?1:x*x*(3-2*x),bump=(x,a,b,c)=>x<a||x>c?0:x<b?ease((x-a)/(b-a)):1-ease((x-b)/(c-b));
@@ -405,10 +405,10 @@ function dramaFrame(now,t){
     if(d>1.3&&segs.length){segs.forEach(l=>scene.remove(l));segs=[]}
     segs.forEach(l=>{if(l.material.uniforms&&l.material.uniforms.uA)l.material.uniforms.uA.value=1+2*bump(d,0,.2,.7)});
     // 1.2 s: the moon flares, the halo blazes, a shockwave runs out across the sky
-    const fl=bump(d,1.1,1.3,2.6);if(window.__bloom)__bloom.strength=.3+1.3*fl;ringMat.uniforms.uA.value*=1+5*fl;
-    if(shock){const q=(d-1.15)/1.7;shock.visible=q>0&&q<1;if(shock.visible){shock.position.copy(moon.position).multiplyScalar(.995);shock.scale.setScalar(MOON_R*3*(1+9*ease(q)*(1+.4*q)));shock.material.opacity=.85*(1-q)*(1-q)}}
+    const fl=bump(d,1.1,1.3,2.6);if(window.__bloom)__bloom.strength=.3+.35*fl;ringMat.uniforms.uA.value*=1+2.5*fl;
+    moon.material.uniforms.uBoost.value=1+.9*fl;if(shock){const at=moon.position.clone().multiplyScalar(.99),g2=bump(d,1.1,1.45,3.4),b2=bump(d,1.12,1.3,2.0);shock.glow.position.copy(at);shock.glow.scale.setScalar(MOON_R*(10+6*g2));shock.glow.material.opacity=.5*g2;shock.burst.position.copy(at);shock.burst.scale.setScalar(MOON_R*(7+3*b2));shock.burst.material.opacity=.55*b2;shock.burst.material.rotation=d*.04}
     // the sky holds its breath and the view leans in, then both return
-    window.__dim=1-.55*bump(d,1.1,1.5,3.8);ZOOM.t=dramaZ0*(1-.13*bump(d,1.0,1.6,4.0));
+    window.__dim=1-.55*bump(d,1.1,1.5,3.8);ZOOM.t=dramaZ0*(1-.32*bump(d,.7,1.25,3.0));streakMat.uniforms.uW.value=Math.max(streakMat.uniforms.uW.value,.58*bump(d,.6,1.15,2.1));
     // two shooting stars once the name is written
     meteors.forEach((m,i)=>{const t0=2.9+i*.75,q=(d-t0)/.7;m.visible=q>0&&q<1;if(!m.visible)return;
       const a0=altOf(titleLabel.position.clone().normalize())+(i?-4:6)*RAD,z0=azOf(SKY.show)+(i?-14:10)*RAD,dirA=i?.5:-.6;
