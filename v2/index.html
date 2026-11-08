@@ -617,7 +617,7 @@ function moonRise(){const n=Date.now();if(n-riseCache.t>6e4){riseCache.t=n;riseC
   const v=riseCache.v;return v?{ar:AD(new Intl.DateTimeFormat("ar-EG-u-nu-latn",{hour:"numeric",minute:"2-digit"}).format(v)),en:new Intl.DateTimeFormat("en-GB",{hour:"numeric",minute:"2-digit"}).format(v)}:null}
 let sayUntil=0;
 function say(pair,ms){$("subAr").textContent=pair[0];$("subEn").textContent=pair[1];if(ms)sayUntil=performance.now()+ms}
-const SUB={find:["المس النجوم بالترتيب عشان ترسم اسم الأغنية","Tap the stars in order to draw the song's title"],
+const SUB={find:["المس النجوم بالترتيب عشان تعرف اسم الأغنية","Tap the stars in order to find out the song's name"],
   going:["كمّل · المس آخر نجمة عشان ترجع خطوة","Keep going · tap the last star to step back"],
   wrong:["مش بالترتيب ده · جرّب تاني","Not in that order · try again"],
   solved:[`${CONFIG.title} · سجّل وانت بتسمعها`,`${CONFIG.titleEn} · record it while you listen`]};
@@ -628,7 +628,7 @@ function guide(){
   const ar=$("arrow"),on=inView(c)||inView(moon.position)||stars.some(st=>inView(st.position));   // on target when the moon or any of its stars is in view
   const down=SKY.moon.y<0,r=down?moonRise():null;
   if(on||rec&&rec.state==="recording"){ar.setAttribute("hidden","");
-    if(state==="find"&&down&&r)say(["المس النجوم بالترتيب عشان ترسم اسم الأغنية","Tap the stars in order to draw the song's title"]);
+    if(state==="find"&&down&&r)say(["المس النجوم بالترتيب عشان تعرف اسم الأغنية","Tap the stars in order to find out the song's name"]);
     else say(SUB[state]||SUB.find);return}
   // off screen: an arrow at the edge and words for the way to turn
   const v=c.clone().applyMatrix4(camera.matrixWorldInverse);let ang=Math.atan2(-v.y,v.x);if(v.z>0&&Math.abs(v.x)<1e-3)ang=-Math.PI/2;
