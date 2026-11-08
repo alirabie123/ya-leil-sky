@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<base href="../">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ya Leil Sky</title>
+<meta name="theme-color" content="#0a0b0a">
+<!-- start fetching the 3D engine and the small textures at once -->
+<link rel="modulepreload" href="./three.module.min.js">
+<link rel="preload" as="image" href="milkyway-lo.jpg"><link rel="preload" as="image" href="moon-lo.jpg"><link rel="preload" as="image" href="cover-lo.jpg">
+<link rel="preload" as="font" href="ka-hand-naskh.ttf" type="font/ttf" crossorigin>
+<style>
+/* Layout: the whole screen is a live 3D sky (moved by the phone's motion): the real sun, moon and Milky Way over desert hills, with Ya Leil as a constellation to draw.
+   Subtitles sit low; one bottom row holds the face toggle, the compass and the record button. Single deliberate dark look. */
+@font-face{font-family:"KA Hand Naskh";src:url("ka-hand-naskh.ttf") format("truetype");font-display:swap}
+:root{--void:#0a0b0a;--paper:#efeae0;--mute:#a9ada6;--line:rgba(239,234,224,.4);--accent:#c9cfc4;--rec:#c8321e;
+  --f-ar:"KA Hand Naskh","Noto Naskh Arabic","Geeza Pro",serif;--f-en:-apple-system,"Helvetica Neue",Arial,sans-serif;color-scheme:dark}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--void);color:var(--paper);overflow:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.sub{position:fixed;z-index:3;left:0;right:0;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 92px);text-align:center;pointer-events:none;text-shadow:0 1px 12px rgba(0,0,0,.75);
+  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.sub .ar{display:block;font-family:var(--f-ar);font-size:20px;line-height:1.4}
+.sub .en{display:block;font:400 12.5px/1.5 var(--f-en);letter-spacing:.06em;color:var(--mute);direction:ltr}
+#arrow{position:fixed;z-index:3;left:0;top:0;width:52px;height:52px;margin:-26px 0 0 -26px;pointer-events:none;color:var(--paper);filter:drop-shadow(0 0 8px rgba(0,0,0,.7))}
+.row{direction:ltr;position:fixed;z-index:4;left:0;right:0;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 14px);display:flex;align-items:center;justify-content:center;gap:12px;
+  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.round{width:52px;height:52px;flex:none;border-radius:50%;border:1px solid var(--line);background:rgba(10,11,10,.55);color:var(--paper);display:grid;place-items:center;padding:0;cursor:pointer;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.round[aria-pressed="true"]{background:var(--paper);color:var(--void)}
+#rec span{width:22px;height:22px;border-radius:50%;background:var(--rec);transition:all .25s}
+#rec.on span{width:16px;height:16px;border-radius:4px}
+#rec.call{animation:call 1.4s ease-in-out infinite}
+@keyframes call{50%{box-shadow:0 0 0 8px rgba(239,234,224,.16)}}
+#rec svg{position:absolute;width:52px;height:52px;transform:rotate(-90deg);pointer-events:none}
+#rec{position:relative}
+.compass{direction:ltr;position:relative;flex:1 1 auto;max-width:220px;height:52px;border:1px solid var(--line);border-radius:999px;background:rgba(10,11,10,.55);overflow:hidden;pointer-events:none;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.compass .strip{position:absolute;top:0;bottom:0;left:50%;display:flex;align-items:center;white-space:nowrap;will-change:transform}
+.compass .t{width:15px;flex:none;display:flex;justify-content:center}
+.compass .t i{display:block;width:1px;background:rgba(239,234,224,.35)}
+.compass .t.c b{font:500 13px/1 var(--f-en);color:var(--paper);letter-spacing:.04em}
+.compass .needle{position:absolute;left:50%;top:9px;bottom:9px;width:2px;margin-left:-1px;background:var(--accent);border-radius:1px}
+.compass:before,.compass:after{content:"";position:absolute;top:0;bottom:0;width:44px;z-index:1}
+.compass:before{left:0;background:linear-gradient(90deg,rgba(10,11,10,.95),transparent)}
+.compass:after{right:0;background:linear-gradient(-90deg,rgba(10,11,10,.95),transparent)}
+.credit{position:fixed;z-index:3;top:max(8px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));font:400 9px/1 var(--f-en);letter-spacing:.06em;color:rgba(239,234,224,.3);pointer-events:none;direction:ltr}
+/* start */
+#start{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;background:var(--void);isolation:isolate;overflow:hidden;
+  padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
+#start h1{margin:0;font:400 46px/1.2 var(--f-ar)}
+#start .kicker{font:500 11px/1 var(--f-en);letter-spacing:.32em;color:var(--mute);margin-top:-12px;direction:ltr}
+#start p{margin:0;max-width:30ch;font:400 18px/1.7 var(--f-ar);color:var(--mute)}
+#start p.en{font:400 14px/1.6 var(--f-en);direction:ltr}
+.go{font-family:var(--f-ar);font-size:20px;color:var(--void);background:var(--paper);border:0;border-radius:999px;padding:12px 28px;cursor:pointer;box-shadow:0 8px 40px rgba(0,0,0,.45)}
+/* both screens wear the cover: a blurred, darkened copy fills the screen, the sharp cover sits centred on top */
+#sheet::before{content:"";position:absolute;inset:-80px;z-index:-2;background:url("sleeve.jpg") center/cover;filter:blur(36px) brightness(.72) saturate(.85)}
+#sheet::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:url("sleeve.jpg") center/min(118vw,94vh) no-repeat;
+  -webkit-mask-image:radial-gradient(circle at 50% 50%,#000 min(40vw,31vh),transparent min(58vw,46vh));mask-image:radial-gradient(circle at 50% 50%,#000 min(40vw,31vh),transparent min(58vw,46vh))}   /* the cover's edges dissolve into its blurred copy */
+#sheet::after{opacity:.28}
+/* start: the live sky behind a soft vignette, and a moon-like button wrapped in the cover's ring */
+#start{background:radial-gradient(120% 75% at 50% 48%,transparent 35%,rgba(5,6,5,.75) 100%)!important}
+body.pre .sub,body.pre .credit,body.pre #arrow{opacity:0}
+.orb{position:relative;width:132px;height:132px;border-radius:50%;border:0;padding:0;cursor:pointer;color:var(--paper);
+  background:url("cover-lo.jpg") center/220px 220px,radial-gradient(circle,#4a4c48,#3c3e3b 70%,#333532);box-shadow:inset 0 0 26px rgba(0,0,0,.65),0 0 0 1px rgba(239,234,224,.22);display:grid;place-items:center;isolation:isolate;-webkit-tap-highlight-color:transparent}
+.orb .halo{position:absolute;left:50%;top:50%;width:184px;height:184px;margin:-92px 0 0 -92px;border-radius:50%;z-index:-1;pointer-events:none;   /* sized so the ribs start right at the button's edge */
+  background:url("cover-lo.jpg") center/184px 184px,repeating-conic-gradient(rgba(150,156,148,.55) 0 .35deg,rgba(40,42,40,.2) .35deg 1.1deg);mix-blend-mode:screen;opacity:.85;filter:brightness(1.6) contrast(1.2);
+  -webkit-mask-image:radial-gradient(circle closest-side,transparent 71.4%,#000 72%,#000 96%,transparent 100%);mask-image:radial-gradient(circle closest-side,transparent 71.4%,#000 72%,#000 96%,transparent 100%);
+  animation:turn 120s linear infinite}
+.orb .glow{position:absolute;left:50%;top:50%;width:320px;height:320px;margin:-160px 0 0 -160px;border-radius:50%;z-index:-2;pointer-events:none;
+  background:radial-gradient(circle,rgba(225,230,222,.16) 30%,rgba(225,230,222,.05) 50%,transparent 70%);animation:breathe 4.5s ease-in-out infinite}
+.orb .lbl{display:flex;flex-direction:column;align-items:center;gap:4px;text-shadow:0 1px 10px rgba(0,0,0,.8)}
+.orb .lbl b{font:400 26px/1 var(--f-ar)}
+.orb .lbl i{font:500 10px/1 var(--f-en);font-style:normal;letter-spacing:.32em;color:rgba(239,234,224,.75);padding-left:.32em}
+.orb:active{transform:scale(.97)}
+.orb:focus-visible{outline:1px solid var(--paper);outline-offset:8px}
+@keyframes turn{to{transform:rotate(360deg)}}
+@keyframes breathe{50%{transform:scale(1.08);opacity:.7}}
+#sheet::before{filter:blur(36px) brightness(.38) saturate(.85)}
+#clip{box-shadow:0 20px 60px rgba(0,0,0,.6);border:1px solid rgba(239,234,224,.18)}
+#sheet .ghost{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background:rgba(10,11,10,.35)}
+.go .en,.en{font-family:var(--f-en);letter-spacing:.02em}
+/* clip sheet */
+#sheet{position:fixed;inset:0;z-index:30;background:var(--void);isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+#clip{max-height:68vh;max-width:100%;border-radius:14px;background:#000}
+.btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.ghost{font:400 16px/1 var(--f-en);color:var(--paper);background:transparent;border:1px solid var(--line);border-radius:999px;padding:12px 22px;cursor:pointer}
+.go.en{font:500 16px/1 var(--f-en);padding:12px 26px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body class="pre">
+<canvas id="c" aria-label="A live sky with the moon and the letters of Ya Leil as a constellation"></canvas>
+<div class="sub" id="sub" aria-live="polite"><span class="ar" id="subAr"></span><span class="en" id="subEn"></span></div>
+<svg id="arrow" viewBox="-26 -26 52 52" hidden aria-hidden="true"><path d="M0,-18 L13,9 L0,3 L-13,9Z" fill="currentColor"/></svg>
+<span class="credit">Milky Way: ESO/S. Brunier</span>
+<div class="row" id="row" hidden>
+  <button class="round" id="face" type="button" aria-label="Flip the camera"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2"/><path d="M19.5 12a7.5 7.5 0 0 1-12.9 5.2"/><path d="M17.9 3.4v3.9H14"/><path d="M6.1 20.6v-3.9H10"/></svg></button>
+  <div class="compass" aria-hidden="true"><div class="strip" id="strip"></div><div class="needle"></div></div>
+  <button class="round" id="rec" type="button" aria-label="Record a clip"><span></span><svg viewBox="0 0 52 52" aria-hidden="true"><circle id="recArc" cx="26" cy="26" r="24.5" fill="none" stroke="#efeae0" stroke-width="2" stroke-dasharray="153.9" stroke-dashoffset="153.9"/></svg></button>
+</div>
+<section id="start">
+  <button class="orb" id="go" type="button" aria-label="ابدأ · Start"><span class="glow" aria-hidden="true"></span><span class="halo" aria-hidden="true"></span><span class="lbl"><b>ابدأ</b><i>START</i></span></button>
+</section>
+<section id="sheet" hidden>
+  <video id="clip" playsinline loop autoplay></video>
+  <div class="btns">
+    <button class="go en" id="share" type="button">Share</button>
+    <button class="ghost" id="save" type="button">Save</button>
+    <button class="ghost" id="again" type="button">Try again</button>
+  </div>
+</section>
+
+<script type="module">
+import * as THREE from "./three.module.min.js";
+import {GLTFLoader} from "./GLTFLoader.js";
+import {EffectComposer} from "./pp/EffectComposer.js";import {RenderPass} from "./pp/RenderPass.js";import {UnrealBloomPass} from "./pp/UnrealBloomPass.js";import {OutputPass} from "./pp/OutputPass.js";
+/* ============ CONFIG ============ */
+const CONFIG={
+  title:"يا ليل",titleEn:"Ya Leil",
+  releaseAr:"١٥ نوفمبر",releaseEn:"15 November",
+  others:["مهرب","ازاي اسيب","النهاية","مساحات","خسرت نفسي","فاكراه"],   // faint, untappable letters of the other songs
+  fallback:{lat:30.0444,lng:31.2357},   // Cairo, when location is refused
+  declination:4.5,                      // magnetic → true north (degrees east, Cairo)
+  clipSeconds:20,
+  tonightHour:21,                       // daytime: mark where the moon will be at this hour tonight
+  snippet:"ya-leil-snippet.m4a"         // 0:23–0:43 of the song, fades baked in; null = placeholder tone
+};
+/* ================================ */
+const $=id=>document.getElementById(id);
+const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const RAD=Math.PI/180;
+const AD=s=>String(s).replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[d]);
+const dirAA=(alt,az)=>new THREE.Vector3(Math.cos(alt)*Math.sin(az),Math.sin(alt),-Math.cos(alt)*Math.cos(az));   // three.js frame: x east, y up, -z north
+let geo={...CONFIG.fallback};
+
+/* ---------- astronomy (low precision, about a degree): sun, moon, galactic frame for any time and place ---------- */
+const DAYMS=864e5,J1970=2440588,J2000=2451545,OBL=RAD*23.4397;
+const raOf=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
+const decOf=(l,b)=>Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+function skyAt(t){
+  const d=t/DAYMS-.5+J1970-J2000,LST=RAD*(280.16+360.9856235*d)+RAD*geo.lng,phi=geo.lat*RAD;
+  const eq=(ra,dec)=>{const H=LST-ra,alt=Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+    const az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi))+Math.PI;return dirAA(alt,az)};
+  const M=RAD*(357.5291+.98560028*d),C=RAD*(1.9148*Math.sin(M)+.02*Math.sin(2*M)+.0003*Math.sin(3*M)),ls=M+C+RAD*102.9372+Math.PI;
+  const Lm=RAD*(218.316+13.176396*d),Mm=RAD*(134.963+13.064993*d),Fm=RAD*(93.272+13.22935*d),lm=Lm+RAD*6.289*Math.sin(Mm),bm=RAD*5.128*Math.sin(Fm);
+  return {sun:eq(raOf(ls,0),decOf(ls,0)),moon:eq(raOf(lm,bm),decOf(lm,bm)),ngp:eq(192.85948*RAD,27.12825*RAD),gc:eq(266.40499*RAD,-28.93617*RAD)};
+}
+const altOf=v=>Math.asin(Math.max(-1,Math.min(1,v.y))),azOf=v=>Math.atan2(v.x,-v.z);
+
+/* ---------- renderer and scene ---------- */
+const canvas=$("c");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:false});
+renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.AgXToneMapping;renderer.toneMappingExposure=1.08;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(70,1,1,60000);scene.add(camera);
+/* the moon as shown: its real place, but when it is low or has set it waits just above the hills, right over the real one, with its letters (the subtitle gives the real rise time) */
+const LOW=17*RAD,withShow=s=>{s.show=altOf(s.moon)>=LOW?s.moon:dirAA(LOW,azOf(s.moon));return s};
+const TQ_=new URLSearchParams(location.search).get('t'),TQ=TQ_?Date.parse(TQ_):Date.now();
+let SKY=withShow(skyAt(TQ));
+
+/* sky dome: the cover's greys, a little lighter by day, with the real Milky Way photograph (ESO) always out */
+const mwTex=new THREE.TextureLoader().load("milkyway-lo.jpg");mwTex.colorSpace=THREE.SRGBColorSpace;mwTex.wrapS=THREE.RepeatWrapping;mwTex.anisotropy=8;
+const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
+  uniforms:{uSun:{value:SKY.sun},uMoon:{value:SKY.show},uNGP:{value:SKY.ngp},uGC:{value:SKY.gc},uMW:{value:mwTex},uEtch:{value:1},uMK:{value:0},uEnv:{value:1}},
+  vertexShader:`varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform vec3 uSun,uMoon,uNGP,uGC;uniform sampler2D uMW;uniform float uEtch,uMK,uEnv;varying vec3 vD;
+    float h1(float x){return fract(sin(x*127.1)*43758.5453);}
+    void main(){vec3 d=normalize(vD);float h=d.y,ah=abs(h),sy=uSun.y;
+      float night=clamp((-sy-.02)/.26,0.,1.),day=clamp((sy+.04)/.14,0.,1.);
+      vec3 zenN=vec3(.0055,.006,.0055),horN=vec3(.034,.037,.032),zenD=vec3(.02,.023,.024),horD=vec3(.075,.08,.074);   // the cover's palette: charcoal → sleeve grey-sage; by day only a shade lighter, so the stars stay out
+      vec3 c=mix(mix(horN,zenN,smoothstep(0.,.75,ah)),mix(horD,zenD,smoothstep(0.,.6,ah)),day);
+      vec2 sh=normalize(uSun.xz+1e-5),dh=normalize(d.xz+1e-5);float toward=max(dot(sh,dh),0.);
+      float band=exp(-max(h,0.)*9.)*smoothstep(-.02,.0,h),band2=exp(-max(h,0.)*16.)*smoothstep(-.02,.0,h);
+      float dusk=(1.-night)*(1.-day*.85);
+      c+=(vec3(.3,.32,.28)*band2*pow(toward,3.)*.7+vec3(.09,.1,.088)*band*pow(toward,1.6)*.4)*dusk;   // silver-sage afterglow
+      float s=max(dot(d,normalize(uSun)),0.);c+=vec3(1.,.9,.7)*(pow(s,800.)*6.+pow(s,30.)*.15)*step(0.,sy);   // the sun's disc by day
+      vec3 e2=normalize(cross(uNGP,uGC));float gb=asin(clamp(dot(d,uNGP),-1.,1.)),gl=atan(dot(d,e2),dot(d,uGC));
+      vec3 mw=texture2D(uMW,vec2(.5-gl/6.2831853,.5+gb/3.14159265)).rgb;mw=mix(vec3(dot(mw,vec3(.3,.59,.11))),mw,.12)*vec3(.97,1.,.95);   // monochrome, like the print
+      float wash=1.-.85*dusk*(band*pow(toward,1.2)+.25);
+      c+=mw*1.25*wash*max(night,.7)*(h<0.?.45:1.);   // the Milky Way stays, day or night
+      float m=max(dot(d,uMoon),0.);c+=(vec3(.06,.06,.06)*pow(m,140.)*(1.-day*.7)+vec3(.008,.008,.008)*pow(m,10.))*uMK;
+      // etched lines: fine radial strokes spreading out from the moon, like the brushed lines on the cover
+      {vec3 mu=normalize(uMoon),ax=normalize(cross(mu,vec3(0.,1.,0.)+1e-4)),ay=cross(ax,mu);
+        float ang=atan(dot(d,ay),dot(d,ax)),dist=acos(clamp(dot(d,mu),-1.,1.)),k=ang*286.4789,id=floor(k),f=fract(k);
+        float on=step(.62,h1(id)),len=.12+.5*h1(id+3.1),w=.18+.25*h1(id+7.7);
+        c+=vec3(.8,.82,.78)*on*smoothstep(w,0.,abs(f-.5))*smoothstep(.07,.1,dist)*smoothstep(len,len*.4,dist)*.035*uEtch*uMK*(1.-day*.3)*(h<0.?.4:1.);}
+      if(h<0.)c=mix(c,mix(vec3(.005,.0055,.005),vec3(.03,.033,.03),day),smoothstep(0.,.25,-h)*.6);
+      gl_FragColor=vec4(c*uEnv,1.);
+      #include <colorspace_fragment>
+    }`});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(40000,128,64),skyMat));
+
+/* a sprinkle of twinkling stars, out day and night */
+const starsMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{t:{value:0},px:{value:renderer.getPixelRatio()},uSun:{value:SKY.sun},uEnv:{value:1}},
+  vertexShader:`attribute float size,ph;uniform float t,px;uniform vec3 uSun;varying float vA;
+    void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;vec3 d=normalize((modelMatrix*vec4(position,1.)).xyz);
+      float night=clamp((-uSun.y-.02)/.26,0.,1.);float tw=.6+.4*sin(t*(1.3+ph*.4)+ph*9.);
+      float glow=pow(max(dot(normalize(d.xz),normalize(uSun.xz)),0.),2.)*exp(-max(d.y,0.)*5.);
+      vA=tw*max(night,.85)*(d.y<0.?.4:1.)*(1.-.9*glow);gl_PointSize=size*px;}`,
+  fragmentShader:`uniform float uEnv;varying float vA;void main(){float d=length(gl_PointCoord-.5);float a=(exp(-d*d*26.)+exp(-d*d*5.)*.18)*uEnv;gl_FragColor=vec4(vec3(.95,.96,.93)*a*vA,a*vA);}`});
+{const N=1800,pos=new Float32Array(N*3),sz=new Float32Array(N),ph=new Float32Array(N),v=new THREE.Vector3();
+  for(let i=0;i<N;i++){do{v.set(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1)}while(v.lengthSq()>1||v.lengthSq()<.01);v.normalize();
+    pos.set([v.x*30000,v.y*30000,v.z*30000],i*3);{const r=Math.random();sz[i]=r>.993?6:r>.95?3.4:Math.pow(Math.random(),2)*2+1.1}ph[i]=Math.random()*6.28}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("size",new THREE.BufferAttribute(sz,1));g.setAttribute("ph",new THREE.BufferAttribute(ph,1));
+  scene.add(new THREE.Points(g,starsMat))}
+/* the real stars, lifted from the same Milky Way photograph: crisp from the very first frame, before any image has loaded */
+const REAL_STARS="OG6ITKg2GDBIAafMR6jX0Kh8Z7CYAefOiED370eXuFUn4ohOOBdXkBf2B/Y4cfeVWGK4VZgat4IH3oe/uCKoHLglKHqIYbh+6DNIHfhemDBHnQfQmAIoFmfzx9LnzQeEl8XHnygBl/CIY8fgF48H7ugRh6hn2nf419cYLge+CF6351eYh+7IR9hbB+04VRggd5tHyXgc2Be3qGh494vX6ohSuBJ3zxeTiAFIE+hiGAtnuigQl+hnlReGKEyINjeOt8v4EehzuGT33KgqZ9woKzeDh+SHjZfXyFvoZ7gId9U32pgYB5CIdBeyGHSnlnhHyAq4F2eqB5pHy/gImBJn6nh2B7j38PgXyFd4G0hN17sH0Bh619QniqhFeEL4U6gh+CLHnsfsh8eoNIgKCCToJNg+V8on3Ved6CknhHgreCvXiEgMmDdYOXgXGEF32Zf0B+74ZYeO19Fn2bfA98BYZthBmGyntlh7eCRYT0hQ15doC5g5N4Soe7hwiE+HxmfiyCj4DPgQp+AoBLhC2B9obOfveGSoZfe9R5qIBFgESGBIcReHZ/moK7f5h5LYMUh+ODi4XGeFmGyoUeekV8cHkOeQl58IAHgf2Din0WghZ4yoKpf0mE1oKJgeN/yXjzgFh+KHyIe8GAoXpue2SCyIMhevCBToEsfTJ+5Xi4f4V9y4dLhuh7poNneFF7vnskfeWDs4b6g4N8yYekfOt8WH2ueXF+Yn8AgeuFfYSChJGBwHvLeOF/sYLreziHgXqkg+d+q3hWf8WBkIDReK98vYY+gHh8onuXhKCCVoa6fqSH84ZOgNyC5H3Zgtl9CH7egt+FpXpfeBB/I4I0fe5+k4Xbf3J4Xod3fbZ7OYA6g5+HmXh3eWWF3X7pfsx7dHv5f+Z5aXu/g7B6rIHnefaE04Qtga98pYN8eEODwIP2elx+TIKHhKuD5X5qg/V5fIAjgYODtYHtf2Z7wIIKgjl+dXhHhCmFVIP1hXWHO3yyeRmDE4UafiJ++4Bsexd8+Ib1gTGHoYC3gvuGRoMjfwx+m3sLfMuFeX4lgumEXXyAeEGHMX+OeGx69oSrgpd+J3p/eu6EYXgkeG5/Jn+SfyF5uIBKgV1/DYb3f+6E1X8Efo+CM35+fg6FMn6keq+DHoCGgiCCAXx9f0mHX4UqheGCXYJcezyHd3r5ho1+Y39vhCN7dYO/fN56un/1h8SHzIVWeMOFLYEngReBuIKPf5F/wH8tgIGDn3lteHd9inxMgZl/IIUihoyEB34MhDiGQ33Yfr9+sH3HfCx/H3oufuR7iIJQfduCooYCeEOBLHuafreAa4O0eP55l4OAhyOAxn+BhuN9tXg5hl+BuIOWgJmDoXohgKyETYQOe1WHcXoPhciDgnoNeBaHH4BLgZd9in8chol+dIJKeo18IIL8giWDioVRhZx8hYAlfkqGen9ie2+HxH4YhT6Do4DceJl/RofFeA2A8n0DhEl9OHzMeSCApodIghJ+zX6mhEWEGHoChjGBYIf6hGx/coHQf3WEQ32chTuC8oPfh095e3kGg6KEmIe9ev2G8YWggRV/y4Ymexd/b33Kf1KFiYS3etWB3Hv6gC9/EIXFfPmG/oSqfECGrnqgemh+EoOrg6J6moIKh6d9FYByeyiFdYOafY2BoICFhix4w3+FglN5wIH0fpyD0nkHe/J9NnqgfMp4uYZGe8N9S4YvhJ+DYIQofAZ4qnhEePR99H/+eniC53lpgCeFKniygaF53IVyg+uFFn2jf8KARIELgX2ExX7WhNF5eYLmeI6GhX+9gdF/k4Vzfk2HWILahJF6zn1heFh4B33reIWCt368fnKBn4ewhc6ArnqWhXWDsXr1gEmAwYYleSF/4n5zgv6Gh4NZhB5+1IcHhO2Hn4DheTqFTYCUhWl9LYZJfPqEenwjgwSFe4O+fZ2HkoN7hNeH5oPmffOCB32qe0CGln42fOOEzXqFgAB4O3k+eqx/hoEXhkl90n3zelGD7nuChLB+En5Yh/N7gIKne/p9Z34be9iGoYDVe094iIE8fRd9EYGBgZN5YIQbgeWBS4CIf7yFlXtVh1aAf3mEfix/P4JvfW2B/ngeewiDsYcoeqR9+oPqhQOCxnh0hoJ4cITygEB4UnlReTF+AH8AhcB4yn2VhFWBOIVUe5mDon4WhbGB/3jtfd6FI3ole956noKrhyl5qnz+eCyErId2hUJ8e4dAfh5/1IVEf71/gXn2flt+RHpohWN9CXgdf12CmH2wfUyGHXnkfnB/UIQ5fIqGDIWBf+19bnufeIF6LIJRfCKAo4KXhL55jHrzfUt+WnlvgQeGyXibf6eE/HxmfMWB3YOOh+R8R4L0gD6F5nksfyR4UH20fVODKXhxgKaDoHqDgTyCCngqfN6CsIJuhjF+xX3Fe1mEyYRLf6qA6YZke7x/jIbshe567Xsre6Z54YV7hc+AXIayg3OEYXhfg36HX4VAhbB/lYe+g/18s4Y7gEyDKIECgdF6cH5afuZ9yYEseLF9UoEgfaV+FHw4gc6ELYdjhkd5YYIjgVN4snyAgh15MXqpeF+AWXvueGt6GoFYgbeGuXkZekeCNX8LfIuFlXnWg8aDzn8xfmGDKoS8gv6Df4W9fWN5toIYgzV7b4Y8g7WC/X4qewmDsIAEhjd+Moaze9x9QYEMhCKDzoJwhQeDaYBtfpJ4wHkfgQp9n4ZLghGE+YSBeDF+Znugf2p9dnp5hq6AlYc4efOCk3mFh0l8AHtTgy6BSILTh0d6Pnw4f89/aHn4fLWHc3y0hZeBuH+zeSyA74KogAyFe4dLhkF+N4S/fmN7pHjPgFF9UIGMhGZ6CYdNfkB794GYhkaF54JRg4F9kIaZfUt6mYU1hYZ9kIC2fRCHxH4lfiJ+aoOhg95/toYnhDWADH3QfsqHVX2xhQqDQ4RifTl9dn/Lfnp6En+Ffc57e3oxej2E7XsUglh/54bLf5x7hXrCeouF5nqtfIyEeHj6ghB5LH6Eed55IHrWe8t6T4fZeeuH6oNWfTV+E3xPfqGGMYEygTiFvIPdhhd6on61hLqDKoHDef59D36ue62B9YC9hUJ+M3x+fHB6iIEUeJR9PnpNePGHQXxFeuaGBXy5g4KHqn49fo2E04YRgMl/DngDhYmHHoBBeHaHR34AfCOAM4AZe1R6LX9+fiWHY4K0hq15J4QUfeh/vHiBf/V8qYNvhiR9D3oxhSl4G3lThr18f30OedV/dnz5gex7VHrihrN+N33WemiA1Iczgo+D6H6ehaJ8/nvnhimGgoLehuiDHoKpesqEyIKBgHp7d4X/gJyA+YQSeLl9s3iZeqZ/13veg495S3wWez6B94MCgah4KoASfMmBgX5vgJKFD3k4gaN+230Vf7eFCYeSehB/Lnm2hdx9en+gfN+DZYM2gLiGOYb2e/d4JofcfM58H36reQWGG4JHfZ9/snsefyp7TIZBfwmDKIPZh5qDo3jPgt+EJnlbhTl8T3+Mf0iH2oM2eSp9B4VWeFyDpoaLeKqF3YXYgXOA4YNogNuEw4fih+Z9U3/AgfB754D9g1V+6oCCgSJ8UYVreNSAlnqAh0KAyoL3eqd683tthG+Cr4BSeTR+04YIgjt+GYPjhsZ4z4FPeMSCpIDOfb1/NYaafrR47H93f2l4wYU5evmBXn6Hh4OENX+7eTd8P36NfHd9F3yjg5GCbIAchFuGSYBVe4J9WIJdhF5+p3hkegyHUHn2eEJ+fXvKh/57BISOewN6coO2fYt7w33ZgjqDCoR8e9eEaH8lhlJ65Xj7eAR/IIAJepN8RIXGeIl5nYB9gJZ6AnszfP6E0HwjgJh8ynjYf0iCTYRbhbt5V4KChaKAjH8vf3+EWobWgPB5338ChGB9HH7thkmC0n2Bf+B+WIKJhnaFZIQAgKmCKXymeIB6sHzQfS6HA4Kvf4R/pX+Meu9+tIFnhtp+yYHUeLSAPXyKfmmA43wGhmx4rX0dfZx5GXj/eU97nn1+frd8PIQggYB/i3pFfi559YVQf5aAdYGUfZh7foSIgt16+oHJgmJ9uYIXfLuF24XfepaAd3lZhduDOny6eI57NIR4gvmDnIOFeF+H638fguSDW3+FhMuGx4Fhgap9Pob4fm+F538CeXd6jnqjhSt/f38ugwWGm3kHeG16VnjLfUuA64GagiyA73iweBV4BX2YfLSGAX0EggB6x4bThKiH/4CvhQODZoJveRSAZHkIg+GDcYZCgjmGvHsnhhCAvH2Tg+uH43ubgZ14LHpehi9/HICvfOSEOXn2fhiHl3gneWqHzIcsgK+Ez3xhf++HloXifkmBmX1Cg4KEk4Q+fsCEroRjfAN5n4athFCCbX5aht2FhoLfeRuALoAbhhqFWnlGgh+Cn4HJhbR+doRdec99Z3quf7Z9En60fBmDHYS3gLKCqYKaf4iE+X6vgZqFc4NigVB5qXzqeVF5WHlWhIV41oSmg555WoReefJ5bn4IfuB7dn86hCmE4X+qeVKE5nuGf/CHbn/FfuZ9YIPghnaE/YRmf7942YEbhf54Q4GBf0h4H4Jaf754qIWHf7F8+IKehzqCtX7zgG96bn91hbaGZX7OhiuE+nonedN6MYHZeJ1+AYDheVWENIWfgDSBW4Spe094NHxFgaWCzXuLegaGgHpefxd79nu6fDWFnXncezR8loG2eWODSn3WfWN8BYcVeFiAkn5IeA2Cdobde7mFX3zMfLl61YDghM18/4OtekJ+74OMeFOCXID1h8d5aYHpgwV7BH2bgoOCVnlMgRZ8YYZKg8x9PnorhoV5t4U2hhyC+37yeHt4GYGGevh9iICihEKBenghgLp6I3uMfLiBB3hHhGJ8UIZShnqA9ob+e9eG7IFBhjyEuHztezV5d39+gmV4pnmmf9B6roHqewl/YXiXfMuGTnqdfiZ8gH4jhHqGPYEhfumGvYT9gIqF4Icxfp958YDwhSx6gYWRfMyC+H2Yf7eHYH/VgdeEOId0fKZ/5XiPfPZ6L38BgmyEwYffelF6k3vPfGOCsXvjhkB91XoXgSN5W4BBeWh+7YWbeLJ9yoUEeyqCkoGkglZ6b3xXgUB9UofSghl69IS0f6yBBnsPgcl4NIbBgop+dH26gB6FE3rThat/K4H4eld91XxThNh92X0hg5eBw4f1gZSFkXhXftiGXIOQeuGAUoUTe7t47X50eLJ4H4TzfdF/0ocJg4CASYUah/iF04WLhRd8HIMghLh+ToYTg5N+an8MfZWDL4M8fz2EFYabeKWGHX5ie3x8MX6KfTh7jn67hqx9+Xifg6d8u4FZhPV9zHnffeyFcYO6f4d8LnobeDeHSYSThhaDen5Zgyl8GoLFfq2A8nh6hRd/NoMVeNKEI4Cah0OEWIJFhFOHeH+uhBmCD34uhjuAinlXeap4DXkChNmECYZHg8h51odnhFKCs4DZeo2Bs4Jsgs56ioDiewt+3HgUgqiAIYdGhqSDv4XvgqOCbYS/eNOFwILse/6BBIVHeuZ9s38eeGOF/oV2epWDQoAdg4eCmIZgezx9YIFEfVmGKYLLhNmDBnuafjh/T4Mje1F964JngzB7RHnjft58vIVghIR854IshsB4cnwygQ+CA4bthi6DJn4ofKGDCIMBhL5+0HqUgOGCaXybhsR+3nwzfq1+0XsXfhl+fIYLexKFm38Fe/N4/4Tyf3qAC30RfTGEan7wf3OB14EJfZKDS4OVgY59UXiffmSCHHppgZqFr4QkgZOEcX5ogzN5C3nFgLWBAYIAegF6Bnh0feGAcYNhhw+Dw3o+eI59Q34wgDmFQni3gsmHX3g9frGFlYNAeOt4soS5hMl/OYc1fXt9XYaRgOh6N4UCfIOE9IFKeYSFXICdh+mDin/ZeRqD1Hoofl+FN4V3fL2FnILug1CEnIO5eZWCHH7Uhs98b3ilgISHz4TchwV6+nsXg0N85HoAgFWCi4Wje6V4O39ffx2EjYQffGaA1oVff5GDHXx6eRqEiYa+fnOH7HrshaKEoIEKgo14In74fguDEYdIgUV7N3wYhWt9mYEkhSB/PoI/h0aAOIb0fdeHmHlWg9x/63k5fsOCd3oDfN6EX4SqfOyGxHtJgdeGDYF0edKAvIBBeA1/p3q/gVqAzYEAgmCAgn6Agbx7AninfayFI4Z3gJyFuXkpgQp7MH8uf5eHq4Mff1R854SgfRqG3YGffjN4BYV9g7V72YRRg2WDG3/WeceFcn6+heh6h3jzeGR97X8khu18U3tFeCCFB3m9fS95uHjDfNJ+YnjLhRR6DoYxfyt4cn5PgDJ6T4XUf7qEmoPdhmiFPHo6gg6BKXvOeuWGfHrShjF9IHhIfxOAOIG0euN92oC3f9Z/WnxAeDl8NHxbeiB9uoTWfZ2HM383ekaB54Q9fOl48INGfKWH43/JgLSAJ3vHhk6FPng4gRR+/IC6f3t6qXmph894wocrfEZ6+Xrden2AAIaCgH95hYSZf5B5InuJgO9/MYMVgG5/i31aezaBc4OthLCG53igfqF+moJFgR18ZX3AgE2CcYTUf8t8BYBQgNx7K4fkfC54eYBXgNN76oGOe0qHEIf9hoZ8VYaghxmGhnj9htaCCnmFeASFWHqVfLaEmIaggMqFNIB9h5x8033RfnqGjoJgfaF6z4NPg8l4pHoBgC6ByHqjh/+AoXoZe+OCI4VVf317HoItg7OD6IHrhySFCYHafWN49nnmgUWCLHlefyt4EX7ne1l9B4HxfFWBHHinfVl+0YEfe4WD4YTOefV65H7RgMuENHwbgxR/SXu0hKSB64Lseu94F3yWgHOFq4J5gUR7T4FKhBGFGIN7gpeA6n3phwWGu4VwfMSFhHutgnB7WXh+fvSHWIZuhdWAq31Xg956WXmCfyKConkShp2BqH1XeiaDz4FSgRmCTIMufsp8fnjChsuC2ISTf5iAB3sRfe55SHz+f2mBOoDhhPGBv36peHx7xnx+emx/EYdrhOuBgIO5gAp6BnonhIh7RYDghzCEzX4OhhaG7Xp+ejyHnn5ofAN8WIbUfNqA0H4Zfsl/zn0FfOKDsH7pg/mCxoNnfCyC34GvfByH8YeaeEd+4ID+fGKCIobzhgN4wIKRhOuDPHp4fGZ8L33hfFN/23kPfbl4A38Ghup4jXnBgJx7YHpphpuBQHtjgz19voaieKh7aoAlh++ByXgmgpyGwYRggj6Gf4AiexB733vCeraFNnqLgAqHMH1NebSEU3l7e1N4kILieV6BiYETgg19U37mfKKBuHvsevN+0YCRfrWGLYEGhLmC3X5chy2A+3gmg5ODDHpPgNF7EYGweaCAI3hseCF94YS2gPSEOX0qhLR6MHvke6qBVXlKeEF9MoJYgGZ9B34TgaR9jn2xfL5/IIFEeJl9iYXbexSH/YLHeWiGwoMxhW9/pHt2fhGBBX6OgP17XHwshgZ4/YDwfgt514e2f95/+4XogMqCdYVAf798sn17g2N73njWhNJ+hnjQgXZ4ZXjtfaV/cIU1hTl+lXiEex+GaYYzfj6GlIPihSR8N4Fbg/d7HX2lg8Z9Fnk+fVh8roYVe1d4JnqseBR5ToD6gT6G8YTDea6AOIR9hAh5BHuUgomEUoVCfQWExYUJfW2EhIc5et95c33ChNiGTn5igNJ9o3ptg915F34WfzWG03gYgNqA8YLjgV+DEIR7eb19z3zrh0WCzYQNemF/MYJifB969YHZfIp+s3i8fzN7r4XXgWx4poX4eCN9N34ggfmCV38oe5l544U3f6J7boH8hWKC6YEMexCDsINSfuZ6U3jigPR+zIWFgcB/sYfmfVV/Vn+fgqWAoYBUfEOBuXtMeHZ49INTh0KFWnutfVV60Ic5g6Z40n4MeDZ7DHg6eEWFLnibhNB8i4LVfFmGKX+sfe6DiYLPeYR8fIbrg1B8Gnl/eIZ5YH3AeXF+IXtBhcSEYYK9hRaAyoRpf1B62H2Vg054GYI3gK6AKHj9hD2EpnyxgPZ/330Yg3x9SniFgiOBXX4veA+Hkn2ThYSAbIK7g++DsoL9fc6AqngqgZB/P33OeZqG9nkvhhKEW4Zxfl+AfXylf9GASHh2h0GDpnk1hHp8nIDdfL197YVgflqBVYPBgAx6Mnhdex9/kn3venh723x+eU6DIIU8fDB9CIQ3gcF9o3uVgVp5w3ybg42Dn4U5g3WH+oDqhW2BTX5/fwt64HihguV5/n0+hFV8TYCyhBuCE3xcgB+HfoJsgnyG5XpJejeHv4atfq14KILtet99zIFwgSZ+tYK/fFN9SYa7eNmCNnsBgal+QIQlgVWFaIUFfsx4doD6gIR+knmXfWl6DXvFh4V99IZaf3F5M4awfCN+w4ESe62CWYeXgsWE5Xt2f0eFA3+Mhlx76X6ZgBl4n3rYgWuEiHgHeCOB/oOWeg574YYIfRl8h4Uzg4V5JHr2gNyF9ofjhEyAqH1ZfwN+3YXHfSZ6sH/2hN58zoUdh3B6Vn7sgqGADHmwgnB5CIVoeCiBHYWTgN+FMoUigvuGiYe2f4GG3n/mhqd/U3pXenJ9ToQ1gvKByocIe8SEV4cnhkKGDoJgf417N4XdgVV7vXl+guZ9eIVxhbF4XXhxemh9+X6th+qAfICifF+B8Xmyg3SGmnz/f9SC7YcYgrZ5+3jkewh6ooT7fx+ADIHaeG145oeZfBmEbIMRelSBFX0IfvGGKn71gPiHeIbvePyBXnnae5OBdoY2hcx7LocSenKEgnr9fImERIXjgjyHRYENgFyBY3tMeMaDBIMMhPV92X7KhXh8ZIXihTCCGoCteZmC+4XheLaFoHxofBh7IISMg3SB2IDQemCFo3z2hPl9Bn4oeb6HBYDBe2SF6X/QhEKAO4ZHeYx8jXtxeup7+odmfJh6SIGZfrSDBnnGgqSEnH6reiB7qIf6fkR7UoL3eWF5loQcfW2ER4Rvf/B50n48hZJ5+IAzgqWHDXomfw94tXrhfWV/ZXpwhNmFf4c5fj2AJ4eFfTuCPH4MeZ96loOrhSp+LXh4fy2BinkUgNSGkHrRhmx7DX/Ug1eF+4c0eLh9IYIGg5WBoHy8hjl5GIC4eCB9YIOIhVx+hHxkhcGF9Hx0eWSCFX8rf6N5M4aSgUF9in9ogIt6MoV/eDSCUXhJfN+HkYa+euF/4YHreSJ5DH2yftKDNHkqgT94hoGAh7iEoIbheeeCEXj8fneH6IcufId/DoUVfZB5bXqceMF9h4BHewh5GIJkgTqCXn+4gy2D3IXHhE2BFX1yfCSAVHx1hsx9HXzefLaFU3zNh2uEkXsRgTZ7JXweg9J7kH6mf4yDEHjSgfCGtH1We5CFZYERfLODmH91hFZ7rIVQhPCAIId9gcqHlnm8eBJ98HyogliBY4MHevCFUnjzh0uA8n1bggqAT3hlekyDEob4gaaGqHipgyV/3IJfePyDToYWe854RX/Jh+eGqH94fY9/hYVefRJ/7n4fgZN9JH+XfyJ5CnxRha599n6sgCF51YSNeoeHEYa6fAZ8t4UWexaET3kje7qCHn4Qhjt+UIeJeax4nXzee+d9PX3YfpyEQYa9eHl76H4TefqBIIYGei59TYM1fauG/YHOfTOFqIPleiF5SYXxgZ6DQYfChcSBG4JAf3ODpoDweUCHgnmCebOAt4BTfG9++YGihH9+d3ucghWFNHzCgxWH+4LReh147IB6erB9r370hGd6Ln0Ih1CCJoEHeuF9j3y2gTV9fHrmhXh79H2KgQJ7eXo8ejKHfXqOh/uE3nn1eY+FynpHft6E9nuPgLp4+oS3gYWCtnyehYd+ontgeoaFMXkxffuCcIb6eKh+6oRPgRyDEYPSec14Zn86e8uE6343gamD5IerhQiFFXgAgsN5uYT8fOODy3k+fReGKXi4hGN5dX9AesKAa4OCegZ9WYWofYuEDIO6hkV6bnxoeKV4C4G7gFZ+4npFgWZ7On8bgaCGCYTGgVZ4y37Nhnl/A4O1fdmAwHgoe1F+0Hi+ezF71oWbhySGWIKVgkCBLH+3g/p6KHp6gWR77oa1gKx9a4ABhp16432oeDJ4F3sqem+FHoYFeeuE6oYwhtGG7ISHh+J8coEBg2GAiIb9exF+4IGXe+R9WXsAhJiEb4L2fnh5R4c0fAp9V4ZlfYeH8nnefvqBdHlNgZqFd3pegLx/CH7mhPt+JIVQeT94N3k2gkV9+oTzeL57PYNCeeOA5IEXhOd95IZ6eM56m3kEgX56Gnwgfdh6FX+qgEWAEYV0e5WDlIK8gwOEU32ieYd7fHsKgriDYIVDh+B5fIELfi144XzvgiOC3nzqfqeGdIXKgRl5pYWsejOCqYf6gql5/4fEfVh7fIHben2GK36MhhZ8VX4XfOd6koaSebd9y4Umg4uEPoZAh8KH9ILLebV7YHrJeC1+R36PhIt8jH28hmuFuHgHfHGHvoCwhdiDvX3Zf12G2oMaebF+GITThg+Ag365eJ571npmf1uD3oYSeZx63IKxf/F7HoTEePeDC3m1guJ5y3otg1l8HHkag8SBBoKofql/HoQZhRaAUnyTeiZ92IdFgtqGboRgf3qH/Xh/fiB7G3mygM6DV3rxe499lHsLfKGGLIN2hiqCZoK8eCCE0YOHeRt8OIDShXN9WYacfPSAnX/khA2H04HWhqiAzn7zhRCDSoZuhZd+B4GCeHqFVYfXeXl4pn8TfTKD/37keEmD0IDKfziHhoK4haGBN34df1OHdIMkeOZ7Xnk6ebZ6v4TyhvF4KHw3fL17D4HCf46G33vEeEqE4nhwekWG6YcLfZaAXXwzfpmHDHnsfA2Hy4aKf8SDM3r/h2+FJnnWeS55W3rpf9p5AniahTx4sHkPfnR8xoaheNuBpIaEhiJ6a4FvemOHgoYthlyBvnkyfBl/Rn2Hft1+PXj9fhqBqXqzes6GpHv4eFyEFXxqf4iFS3+JfDqCZ4eyg/mBNHh4eVh4e4AceC+FBn5pgb94PIEUhcSDDoNJhmqE43+re5SGXoDthuiBuIGsgmh6tHxkfOuAaoQ2gNx9JHlcfSaE9HlbhzCCuILkf/GGE39hflCE74T3hYl6HnqJeU2DkIW7f094P4J0eRaBFIPwfdSCDH6jhH96uoLaf0+Bhn+leJt6Xn4EhR19aH/BfYOCcYbhfquDVHvOhRF4pn/fhJ1+5IWfg1l7lYXYgAd6NH0agbt6Snp8hpV4N4C3hxd9DXg7evt+54aBhJKGj4VEhm14GIU5eot6sX4geUZ+44HZgIV6cITeglmG2YPbgj2DGHk9fS6BNH7deJt+poSVggSDpoZCfDCG7XhVe3iGrIC9eVZ8SXgKhuh8bIC0fzWA736Dhl2HyXxfeJGFCX1Pg69/1YIyhwWEeoYvgKt5EXyTh86HmHz8ert5s4EdeT96MoSmg1OBen39fCmHBof4fAmCWHgRgeR49HhPeCOHu4S4hiGDPITzhIp4Jn8WfveHsoQpeSODxXtxhC97yn5xeJeB34Cng5N5Tn8ChJV/74DwhLp/74DRgkp4AXx7eSyAtIe4euaBtHmMg8Z+GHtggxiFboS0fkWBxnh5hDCAtXzegst8BYUzhvN5yIMrgfGHiYVEhYqCiHvQhy1+EIdGhPJ9u4HleNJ6P4eLhoSB8n6BfvCH7YKlhgF70H85hgN4eocMeZh+FXhLg5x7ioQ3gySDlIP8fsGE733nfvt4l3sHgEKEqYXoeHaD6YRVgx+CyXkreY2Bl4Poe1J8hX4HfIuHGXhSfhB5QHibfOmGU4Amg8V93Xgrh5WDsoBIgDR+GnlXgbSES3pleN1/9XyNgr6FCn7ogZ58z4SrgWt5nIZwfgV4EoIPgIyBpnu+fxOBXXtKeDV6GniOflF9iHgChXOGEoTXfyqELYGCeaSBQ4LZemB6moGQgPeAUIBMejWAfoXWhNJ71n3MhoB+5HpBg6OFw3+ZeB2Ab4Z+fhKHe4OJeEd6Rnj6eeKDUXjpgnB+vIFSgfV/snm4gQh5BXsxhTWGa4fEfZODdHgqhMqCCIYDfq1+zXkFgxV5536EhBB6EX+OhjV/rntBhz58i365hXqFgIPZgOqAz376fZOG+HqLfJt/qnv1eEiG8oTpfYt94YGefkB5AHhcgkOCMHvehgmDF35Dhyt6D4KFeXiCV3p9ho5+sX9tgvSDQIF6fQKAlH5qeiF7QnpDfGV80Hwog6l6FXqQeRyGyYLBe1SBYIWafOJ++4OCfhSDGoR+ftp93IMaeJmGJ3slhbSDVYHXh6WHKX0keIZ6tYT/g0CBG38JgpaHmn34gO2Dy3yNeGqCWYT+f8N9B4UrepR/I4NffFJ/H32Vehd/634xgwZ5m3kHgzGH33sIgzCC+XynfMOGuYM/g2mBHn7cgSR/CHujgfR9IH8ifG6DJXm9hV54MH4cg795fYOWeCSDCoX7e397ioRWhhaEAIHiedmAYXp9hJKBPX1JfM17o4WretZ96n8Pfmt48IZrgEZ+63uAgMaCPHoigGeFEYDWhaqH7Yfoe3aGKnwhevt/h4L9gE14ynz8h+V9Dn1hhfODEXpafJt6vn2RhaaBvYTve1x4d35Agmd9WniFhMOFvnq1fQ2B43/bhXd6PYFcgcF8GYYBgk17J4CyePKDDHilghJ8RIEIey143H0JhS+DQXvAhKd/GnuBhgOCkIYEhc+AMHnEhWB6RIUpgGyAvXp3fZSEMX3ThP+GrIITekh43niRfqF5tnlBehKFAXs4erZ8i36KeUaEpYHQfW97ZniaeFl+v4ZnhWqDToJHfyuCgH5thy98FHhChox+iHqWfjqD8H/whICGXX78ge+AcIZAfcmBD3qLfxyDbX/Lgv55L4FweJh/GYVWfYyGcX6FhIp9c4DZftZ+THgngcuCd4DmfUOGKnldhfmBHng1fd6BeIQqh0eDfoUlgot6+nrtfPR4kn7yfgx/636MeCCEioWPfyKD74NfeI18ZHrXgNmFo4bne4+F8IEDegJ/qoXPgFt4NofffYB64HsxhQZ7poNAeFGHP3tOgA9+9oYefcmAiIUQheeGfIRRhcCD+X+KgY2H/YD7ha2Ce4aQeAR4Woe7fgF4p3wuhi14uYF1fwZ/zYCLgg1/N36+ea19qoSigxt5YoTieJN9Pnt1gpmDaHtHeyuFmn86fMaAOoHTfwl5aYHfgsKGj4AWfJl7poVPggx7bnsJfSt/IXzrhOuHc4EWg1R5q4bRgo99cHznea+AD3ggftOFYntue9eGOoFDfvt/yn+wfA97M4Cah+t+S39JeUJ6B4LHf/97TH6ig22GcIAYekyFwHongeN+F3vDeHl+r4H+hZaC5n6YfsiGxnlMfwWEuX30hfx6K3lGhs94q38mgth/NoSQfs+DbXjngO6GqIAAfaqAp4EPeSV6p4E0hWCEdIErfXl58318hbGHOn3IfGl9YH6ifyuDBn3heqF72H4OfLx4zoDeeS+C5XzDhIV6C3ike0CFiXutgoN8bniCeP55uHtpe3KFpIAffeaFYYJQgVCDenz3frCHA3kPg0N5mIZqgpuEx4SVeJmA54DJfxh7hIX/g059K4eZfRR/RoTpfdJ+J4VrfWqCLYBGhoOBfX1bekB+k3zhhnF+on8UgDmCV3pvgtV5toZ6e6p6LIcIhm58f3oph+V8tn76e8x6SYZnhEd7annEhe58SodpfWyDCHuLf3GBUHtOeIx86XslgRN+cIL0fSh6lnrQgW+Fp37zfiKBSX3qgOiCMHz9haN63niufm2AQIcgf6WGiYFte66HU4Bcg6J/s39dgWaFuYAoeGKBo4Jdesp4WoGZg/N7iH/MeXCERITRfKyGkHghfft8UH3rfHF4pYWSfgGDs4aMfa54k3zhhpSCLYHpe5h4b4M6eKB+cX38gLmCFHvrgYl47YR9gZh8hn5EeaKDYn2ig4J+24GGf92G5YDxhIl+133/fEZ7moUgfR+EooDJhdt5SnjcfOqFL3haeD1/HnrZfhmBQXuHfFyDE4TpflB+Jn5rgyKH3YMieuF6mn+Xgol8Un2VfVeA+H4qgTV9mnmNef6Cg4SJe0uH7IWAfWODP3rXfhmHnnyfht6Eqn42gZOASnnFezaF94ZWgUuDYoDIg9qAGYCogKp4fILtg/F4lIXJfW6Hh4Y1gUaB1YXYgr5+8oGPgz6Bz4SCg42DsHoVfX55e365fzB7KYUpf/eBroQXe+B5DHnferZ9Y4Czgk2EuX6khV16yHkKePCBRnvug+t91njxgxSDmH05h5l6ZX0RhmOGg3ooewCGUXpZhaGFpoQweiWBZ3iHg9iH7oFjh7OF0X9jhMCFZoJGgRWGjYYMhOl/BIExeVeAu4TCem+Dr35veSV9vnmwh6+DqIXggvZ7LX4lhmKG239ofxF+jnsHeUh/1YD5gmmEjHgUhC6BBXlUhbp/V4TrfYWHtH16gGaF/XhNh6OHi4a+hU57doaXgqJ7oH50fV2B2HiigZ2EeoVghqZ6m3q3htKB5HjIfJF+2oUKfNN9iIbjhNaGkofgetZ5foG7hhGAnIMdghmFCoTqemN7nYMngqmFQXgieamC9nzPeEaANHm4fBB9U4Drgv+AvYUVf49+cXprg9F/B3qwgn1+LHu9h5x6gn9ehS6BpHxQfNt/24TRhgOHQHp5eSJ4cng0h+mDUIJsh4aGaoI8gkp5OYJthb99AIWDfkyAQ4bEgqaG5XnNgTN4UYaCfdmFaoU7ejqFBHuNeJKBLoDMfv14uH6ofkmEzHjWhSmBH4RLfz15InypgyR/1IS4eWqFToRbfhOGDXg1eQ9+3n4Qe0+DW3jveHSEmH1OegeHi3hLgt16c4exhnuDBnjLgNWHr4fsezmE2YSUfwCE/Ifog1x9NHmCeNB+Ln+je4V7JnkVfp6Hg3oLeUN6hnrnhp57tYCDhwuBl4C3gxqAAHzYeMWAGoTtgdN6rn0pe1B6gHkbhqp8kX/tgiR8XX5bhrSCWno2fmt50n+VhoB+kYbDhvB6w3tffLN6vYPIf4N7xH2ZgZaCxIXheP96RoKdhG5/OYZXgmmHkX8ehxOBBobEf4iHHX4QeIx+a32ugRJ5IXxnhv54lIRsg7uDgIEufeWHpoIwhaiGf31egk6H7oDCg+GC23tNfDSHd4HWgpp8eXj4eqSBqHxeeQCEt4fyfjJ4CIRWh718eXqLgTGDLX8NhM+DWoO3gyKBrX1cge16fnkJeHB4q3kuhfV7ToBfeZx+0oKSgXiAIXyqgyB7XH3UhvmBZoVTeZ2AqX26hVeCD3gxe8h5sHgkf7V7fYGOhg9+Pnjbe1t923/YgyuEa39KhnWA54c7fnN8FnoCe2h6+IS+f/B+xoWkhYR8jXl0eZOHRXr1fPF7VILogxd8yoMxgjt4zHxpgzCB6n1zhOWDjnsvenuGzIIEeo6CbnhvhM5/eYHofGaHsXyxgwF/MYHKgO54iXnTfBCAjoFefXZ5ZH+Uga+BBYYkgBR7xYLxfDN93oR6hzl/hHwufh+AGoB7gByCG4Elga15OIENhKyHWYDvhhN6iYbPfep+VYNOhlV7gH1ze9J/TH9sfcx9Pnx+hGWB13mye7t/koEwhfuA9YCRhVF9/38zgVN8CYVIeQaFWX0dgN1/CIb4fTeE1HzIg/d5foJMfvd9939mfOx6pH3PgrWAboOGeV94SICVeq+HqIS0gbCBdIYte3l/5oU6hg18yXnieQ9/j3srf/h9ynlmg1Z58IIWfvp4UH5Le6d96oHse2x6CHhSe4192n0thHeCsYZbeReF4YUwh1GG0IDte8WBVYEseRmDioClf7WEj3nQhjCFG4NdgGd+EXhafVt+JIFifLl6iX0cgsKEfXraeix/h4WXh1B+OHqYeL9+boKJg2N//IFdeA+EdYOYhy15WYZ6gq1/AYZXfWWEa4BPhViBYYFoe/iC3njye4J5jYEveHOGWIXUhbx/Z35Ie/CEdHwUfIV+fIcKf6t4kIT0e6KHUoWAgWZ6r3hifKt8WoMOfaR8rYBWeROEGoDTh61+bH68fyOFl3xehM2Do3lAe75/AYeyhGh6o4EYfsJ8kXtheeF6ooa9heeC9njHe2B/IHwJgZSFjoJXfHZ58HphhB2G63wCgvh+9X7WfVl+sn//fbmFbX8reYB7d3+ghe2H6n79fySB5n0Mf2x5OX3/hYqHKIRIf+l78H+HeOZ8h3rceVaBsYW+fyV66YQshaKFBYKIedZ7U3n9exqBpnoxejd57niYhVt7M4U2hgZ5F3oNhsWDu3jsgnB9poCLfYx5cXhyei57a3gHeFaB34OHgRJ6QIcegTR6eoQXeZt7soVnf7x5E3gJgQ55nX1XgU5/PYZKggV7CX0Hhqh43XwNemp6xIU4f+mCwoEufPB8qXt9fbyHW36Ce7CFf38Sf4OFSIYzhgN/N3hweD9+TngdfZqAvoeDeCKFGoQPgzV+fH5jffV8rIH5enl7woINeX1+g4ZBfJqFFn87hCqGeX+0e4p+vYILg56B23kFhfyBmIa3fBZ56YYHhoB+OoToeO6AtIHsfPl+Gn10gU55sYUYghN5woMfhLJ9toMbhGCGCoGbhS96F34sem+E24Z4hJ17DHwfglB+0XuMgMmA8niNh3l8r3i6fK6B3nune+GFK3lagGKEEYJ1f1R+NoGhhKSGIXrfeXh+CobWhuZ7EYDhhK+D34GXeGB6bH5Rfpx8t4Gkg5h724JpebyE4HgDeTeHwIXbhIqAg4MXfPF9vIOngg6E64YNeMt6soN0fXOD8YE8fWiAcHoNfSiAln9yht16xHmQejV5pYIbfy165oS0fb1+9H4ahnKHI4W8e4t4QnkRfm6Be4J7f86Fo4VQeO5+1YbehJB6Dnn4gaZ5E4ANhP96aYIXh218W4KnfTaEhXwqg/J6H4K7f0yBIYe7f/t7mnmzeWuENXvUfF+AZXgHg3aFaXlUgBGHAocjgPmEU4LnhSt+oH8QgMmCQXvth2p70HgCefh4Xn0UeMt6y4Xjf0d8f31Gg2GE24UFhBmB1H9UfyuBAHlzgpGCG3jVgpSAM3xQf358n4FXfl95JoWIgVSG1IaoegeHXYasfnmEk4NchaWBon2AgDiHQYFAfeeCw4NAhvSHlXnSgkGFYHs/gX54XH4nepN48YUhhNmBbHtkfWCBKHqDeuGFJYFShnl8nIGXgLx+GIKth/F88oCOhgyDYIbTgneD6ILSfZB9zH+ugb96xIOxfbx7XHjNfjmDe4DAhNOHaoP6ecyFNIQTfR2BlH4kfmCHkoJfg7R7koT8hf6GjH7qf1J4rn7me5p7D37KgpF9Y3wWhIyHMYdHfjeEI3jKgO2CLH63eVODN3kvhMR95n1vexGCjHueh9t5WXhbg354XYXGfNB+R3lqf5aAenreeVWHb3wUeLuB04e2f1l/P4QWfIV8TXv5eOp6c3y+fJ5//HuJho+CuYCHhm+GtX+zeXN7AXkugLh6FIPthGN6rYO+glt873iQgdmDsHrNhISDCnlHeMR7u4Lde4J6x4Ftg8l7VoEwhX99xX7qgyJ+9oRDhYt+NX2igeR+oYWDfGiERHsjegd9/YUAgAyH5oGofbCEDYB1fIiGGH2zfNuEbIexfmeB2oFPfv1+2HqghNl9sn34eDp6koWWgKZ84YZyh4B7U32EeP6G53vceEJ+tX5teAeGPXhxeTJ91XjLhUqFU38IeQGFQIVwhzh9jIcLhdF84Xj9g6WAZITJf6Z5gIL0ebR9ZXjShX2An3qffOZ+yHj1hRx7woZqe0+H6YcCgxGA3n4ufrOAZ380fniFiIdneIeHaYbkfa2BcYNZhqx+moBBfvN5zXmph+aEJHxNeGyBcHj+g26DBH+ufK1+nXjyhLJ9vYACg2V7qoFWfteBBX6ehfWG53+/gwCAhIZ1gKKH1IYph4h9AHqJfLiHJYGEg35/UIVgfWJ6v33ufj2GXINif8x68n5agLZ6UIP9eKeGFHnnf0p9sHtNgK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8EawH7AsL4lvtK+877uPuXB2T8PQVS/ZUHkwYBAkb7DvkfB/UGyvurBjMHwPjPAhD83wMzBLj8KwebAlEBXwWY+9T+KvuBBH7+yQNfBBL5XwK8+gkG5QFjAhT7YQd0+U0BzPn/////7+/vz8/Pv7+fn5+fn4+Pj39/f29vb19fT09PT08vHx8fHx8fHw8PDw8O/v7+7u7u3t7e3t7ezs6+vr6+vq6urp6ejo6Ojn5+fn5+fn5ubm5ubm5eXl5eXl5OTk5OTk4+Pj4+Pi4uLh4ODg4N/f39/f3t7e3t7d3d3d3d3d3dzc3Nzc29vb29ra2dnZ2djY2NjY2NjY2NjY2NfX19fX19bW1tbW1tbW1tXV1dXV1dTU1NTU09PT09PT09LS0tLS0tLS0tLS0dHR0dHR0NDQ0NDQ0NDPz8/Pz8/Pz8/Pz8/Pz8/Ozs7Ozs7Ozs3Nzc3NzczMzMzMzMzMzMzMy8vLy8vLy8rKysrKysnJycnJycnJycnJyMjIyMjIyMfHx8fHx8fHx8fHx8fGxsbGxsbGxsbGxsbGxsbFxcXFxcXFxcXFxMTExMTExMTDw8PDw8PDw8PDw8PDwsLCwsLCwsLCwsLCwsLCwcHBwcHBwcHBwMDAwMDAwMDAwMDAwMC/v7+/v7+/v7+/v7+/v7+/vr6+vr6+vr6+vr6+vr6+vr6+vb29vb29vb29vb29vb29vLy8vLy8vLy8vLy8vLy8vLy8vLy7u7u7u7u7u7u7u7u7u7u6urq6urq6urq6urq6urq6ubm5ubm5ubm5ubm5ubm5ubm4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLe3t7e3t7e3t7e2tra2tra2tra2tra2tra2tra2tra1tbW1tbW1tbW1tbW1tbW0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLSzs7Ozs7Ozs7Ozs7Ozs7Ozs7OysrKysrKysrKysrGxsbGxsbGxsbGxsbGxsbGxsbCwsLCwsLCwsK+vr6+vr6+vr6+vr6+vr6+vrq6urq6urq6urq6urq6urq6urq6tra2tra2tra2tra2tra2tra2tra2srKysrKysrKysrKysrKysrKysrKyrq6urq6urq6urq6urq6urqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqampqampqampqampqampqampqampqamoqKioqKioqKioqKioqKioqKioqKioqKioqKenp6enp6enp6enp6enpqampqampqampqampqampqampqampqWlpaWlpaWlpaWlpaWlpaWlpaSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKOjo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6OjoqKioqKioqKioqKioqKioqKioqKioqKioqKioqGhoaGhoaGhoaGhoaGhoaGhoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgn5+fn5+fn5+fn5+fn5+fn5+fn56enp6enp6enp6enp6enp6enp6enp6enp6dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZycnJycnJycnJycnJycnJycnJycnJycnJycnJycm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5qampqampqampqampqampqampqampqampqampqZmZmZmZmZmZmZmZmZmZmZmZmZmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5aWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIuLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiomJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4aGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIB/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7enp6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp6eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHNzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3JycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1sbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2pqampqampqampqampqampqampqampqampqampqampqampqampqampqampqamppaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWloaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGdnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2ZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYF9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXVxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFtbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1paWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWllZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFdXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1ZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFNTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT05OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0pKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhIR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQD8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj4+Pj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PTw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3NzY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMC8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0sLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiopKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCcnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISAgICAgICAgICAgICAgICAgICAgICAgIB8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHRwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhkZGRkZGRkZGRkZGRkZGRkZGRkZGRkYGBgYGBgYGBgYGBgYGBgYGBcXFxcXFxcXFxcXFxcXFxcXFxcXFhYWFhYWFhYWFhYWFhYWFhYVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFBQUFBQUFBQUFBQUFBQUFBQUFBQTExMTExMTExMTExMTExMTExISEhISEhISEhISEhISEhISEhISEREREREREREREREREREREBAQEBAQEBAQEBAQEBAQEBAPDw8PDw8PDw8PDw8PDw8PDw8ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODQ0NDQ0NDQ0NDQ0NDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwLCwsLCwsLCwsLCwsLCgoKCgoKCgoKCgoJCQkJCQgICAgICAcHBwcHBwcGBgYGBgYFBQUFBAQEBAMDAgEBAAA=";
+let realStars;
+{const raw=Uint8Array.from(atob(REAL_STARS),c=>c.charCodeAt(0)),N=raw.length/5,dv=new DataView(raw.buffer),pos=new Float32Array(N*3),sz=new Float32Array(N),ph=new Float32Array(N);
+  for(let i=0;i<N;i++){const l=dv.getUint16(i*2,true)/65535*6.2831853,b=(dv.getUint16(N*2+i*2,true)/65535-.5)*Math.PI,br=raw[N*4+i]/255;
+    pos.set([Math.cos(b)*Math.cos(l)*30000,Math.cos(b)*Math.sin(l)*30000,Math.sin(b)*30000],i*3);sz[i]=1.3+br*br*4.4;ph[i]=Math.random()*6.28}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("size",new THREE.BufferAttribute(sz,1));g.setAttribute("ph",new THREE.BufferAttribute(ph,1));
+  realStars=new THREE.Points(g,starsMat);realStars.matrixAutoUpdate=false;scene.add(realStars)}
+function alignGalaxy(){const e2=new THREE.Vector3().crossVectors(SKY.ngp,SKY.gc).normalize();realStars.matrix.makeBasis(SKY.gc.clone(),e2,SKY.ngp.clone());realStars.matrixWorldNeedsUpdate=true}   // galactic frame → tonight's sky
+alignGalaxy();
+/* zoom streaks: while you zoom, stars stretch into lines that rush out of (or into) the centre of the view */
+const streakMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,uniforms:{uW:{value:0}},
+  vertexShader:`attribute float e,b;uniform float uW;varying float vA;
+    void main(){vec4 c=projectionMatrix*modelViewMatrix*vec4(position,1.);
+      if(e>.5&&c.w>0.){vec2 n=c.xy/c.w;n*=1.-clamp(uW,-.6,.6);c.xy=n*c.w;}   // the tail sits where the star just was
+      vA=b*(e>.5?.0:1.)*min(abs(uW)*5.,1.);gl_Position=c;}`,
+  fragmentShader:`varying float vA;void main(){gl_FragColor=vec4(vec3(.92,.94,.9)*vA,vA);}`});
+{const N=2600,pos=new Float32Array(N*6),e=new Float32Array(N*2),b=new Float32Array(N*2),v=new THREE.Vector3();
+  for(let i=0;i<N;i++){do{v.set(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1)}while(v.lengthSq()>1||v.lengthSq()<.01);v.normalize();
+    const br=.25+.75*Math.pow(Math.random(),3);pos.set([v.x*29000,v.y*29000,v.z*29000,v.x*29000,v.y*29000,v.z*29000],i*6);e.set([0,1],i*2);b.set([br,br],i*2)}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("e",new THREE.BufferAttribute(e,1));g.setAttribute("b",new THREE.BufferAttribute(b,1));
+  const streaks=new THREE.LineSegments(g,streakMat);streaks.frustumCulled=false;streaks.renderOrder=5;scene.add(streaks)}
+const ZOOM={k:1,t:1,base:72,warp:0,min:.32,max:1.3};   // k: share of the base field of view (smaller = closer)
+const setZoom=v=>{ZOOM.t=Math.max(ZOOM.min,Math.min(ZOOM.max,v))};window.__setZoom=setZoom;
+
+/* the moon: NASA surface, lit from the sun's real direction, so its phase is tonight's real phase */
+const moonTex=new THREE.TextureLoader().load("moon-lo.jpg");moonTex.colorSpace=THREE.SRGBColorSpace;moonTex.anisotropy=8;
+const MOON_D=20000,MOON_R=MOON_D*Math.tan(2.3*RAD);
+const moonH=new THREE.TextureLoader().load("moon-height.png");moonH.wrapS=THREE.RepeatWrapping;moonH.anisotropy=8;
+const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.ShaderMaterial({uniforms:{map:{value:moonTex},hmap:{value:moonH},uL:{value:SKY.sun},uTx:{value:new THREE.Vector2(1/1440,1/720)},uBump:{value:3.2}},
+  vertexShader:`varying vec2 vUv;varying vec3 vN,vP,vAx;void main(){vUv=uv;vN=normalize((modelMatrix*vec4(normal,0.)).xyz);vAx=normalize((modelMatrix*vec4(0.,1.,0.,0.)).xyz);
+    vec4 w=modelMatrix*vec4(position,1.);vP=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
+  fragmentShader:`uniform sampler2D map,hmap;uniform vec3 uL;uniform vec2 uTx;uniform float uBump;varying vec2 vUv;varying vec3 vN,vP,vAx;
+    void main(){vec3 n=normalize(vN),L=normalize(uL),V=normalize(cameraPosition-vP);
+      vec3 east=normalize(cross(vAx,n)),north=normalize(cross(n,east));
+      float hx=texture2D(hmap,vUv+vec2(uTx.x,0.)).r-texture2D(hmap,vUv-vec2(uTx.x,0.)).r;
+      float hy=texture2D(hmap,vUv+vec2(0.,uTx.y)).r-texture2D(hmap,vUv-vec2(0.,uTx.y)).r;
+      vec3 nb=normalize(n-uBump*(hx*east+hy*north));
+      float ci=max(dot(nb,L),0.),ce=max(dot(n,V),.02),ls=ci/(ci+ce);
+      ls*=smoothstep(-.03,.06,dot(n,L));                                         // the terminator, softened by a few degrees
+      vec3 alb=texture2D(map,vUv).rgb;
+      float es=.028*pow(clamp(.5-.5*dot(L,V),0.,1.),1.5)*ce;                       // earthshine: strongest at a thin crescent
+      float night=1.-smoothstep(-.05,.1,dot(n,L));
+      gl_FragColor=vec4(alb*(ls*2.6+es*night*3.+.01),1.);
+      #include <colorspace_fragment>
+    }`}));
+scene.add(moon);
+const glowTex=a=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d"),gr=g.createRadialGradient(128,128,0,128,128,128);
+  gr.addColorStop(0,`rgba(235,235,255,${a})`);gr.addColorStop(.3,`rgba(235,235,255,${a*.3})`);gr.addColorStop(1,"rgba(235,235,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)};
+const moonGlow=[[2.0,.22],[4.5,.05]].map(([s,a])=>{const h=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(a),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));h.scale.setScalar(MOON_R*s*2);scene.add(h);return h});
+/* the halo: the real moon becomes the cover's centre circle, wrapped in the cover's flat band and ribbed ring */
+const coverTex=new THREE.TextureLoader().load("cover-lo.jpg");coverTex.colorSpace=THREE.SRGBColorSpace;coverTex.anisotropy=8;
+const ringMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:coverTex},uRot:{value:0},uA:{value:1}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform sampler2D map;uniform float uRot,uA;varying vec2 vUv;
+    void main(){vec2 p=(vUv-.5)*2.;float r=length(p);if(r<.34||r>1.)discard;
+      float a=atan(p.y,p.x)+uRot,f=967.1/970.67;vec2 tuv=.5+vec2(cos(a),sin(a))*r*.5*f;
+      vec3 c=texture2D(map,vec2(tuv.x,1.-tuv.y)).rgb;float lum=dot(c,vec3(.3,.59,.11));
+      float band=smoothstep(.36,.42,r)*(1.-smoothstep(.69,.72,r)),ring=smoothstep(.715,.74,r)*(1.-smoothstep(.95,1.,r));
+      float rib=pow(smoothstep(.025,.11,lum),1.6);   // the ring's lighter grooves
+      gl_FragColor=vec4(vec3(.82,.85,.8)*(ring*(.006+rib*.2)+band*.005)*uA,1.);
+      #include <colorspace_fragment>
+    }`});
+const haloRing=new THREE.Mesh(new THREE.CircleGeometry(MOON_R*2.8,256),ringMat);scene.add(haloRing);
+function placeMoon(){moon.position.copy(SKY.show).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
+  haloRing.position.copy(moon.position).multiplyScalar(1.001);haloRing.lookAt(0,0,0)}
+placeMoon();
+
+/* ---------- text sprites ---------- */
+const EN=s=>`500 ${s}px -apple-system,Helvetica,Arial,sans-serif`,AR=s=>`400 ${s}px "KA Hand Naskh","Noto Naskh Arabic",serif`;
+function textSprite(lines,{dist=19000,deg=3}={}){
+  const c=document.createElement("canvas"),g=c.getContext("2d"),pad=24;let w=0,h=pad;
+  lines.forEach(L=>{if(L.img){L.size=L.h;L.w=L.img.naturalWidth*L.h/L.img.naturalHeight}else{g.font=L.font;if("letterSpacing" in g)g.letterSpacing=L.ls||"0px";L.w=g.measureText(L.text).width;L.size=parseInt(L.font.match(/(\d+)px/)[1])}w=Math.max(w,L.w);h+=L.size*1.35});
+  c.width=Math.ceil(w+pad*2);c.height=Math.ceil(h+pad*.4);let y=pad*.6;
+  lines.forEach(L=>{g.shadowColor=L.glow||"rgba(0,0,0,.6)";g.shadowBlur=L.blur||10;
+    if(L.img)g.drawImage(L.img,(c.width-L.w)/2,y,L.w,L.size);else{g.font=L.font;if("letterSpacing" in g)g.letterSpacing=L.ls||"0px";g.fillStyle=L.color;g.textBaseline="top";g.fillText(L.text,(c.width-L.w)/2,y)}y+=L.size*1.35});
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));const hgt=dist*Math.tan(deg*RAD);s.scale.set(hgt*c.width/c.height,hgt,1);return s}
+
+/* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
+const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[[-12,-6],[-15,7],[-4,12],[8,4],[14,13]];   // a loose, irregular constellation round the moon (degrees: across, up), in the order the letters are tapped
+let anchorAlt,anchorAz;
+function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
+chooseAnchor();
+const starDir=i=>{const [da,dh]=OFFS[i%OFFS.length],al=anchorAlt+dh*RAD;return dirAA(al,anchorAz+da*RAD/Math.max(.4,Math.cos(al)))};
+const LSZ=6.4;   // letter sprite size (deg)
+function letterTex(ch){const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");
+  const gr=g.createRadialGradient(128,128,0,128,128,24);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.3,"rgba(225,232,255,.5)");gr.addColorStop(1,"rgba(225,232,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);
+  g.font=AR(104);g.textAlign="center";g.textBaseline="middle";g.fillStyle="rgba(243,239,230,.95)";g.shadowColor="rgba(190,205,255,.7)";g.shadowBlur=14;g.fillText(ch,128,48);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
+const stars=[],faint=[],faintLines=[];
+function makeLetters(){
+  stars.forEach(s=>scene.remove(s));stars.length=0;
+  TITLE.forEach((ch,i)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:letterTex(ch),transparent:true,depthWrite:false}));
+    s.position.copy(starDir(i)).multiplyScalar(18000);s.scale.setScalar(18000*Math.tan(LSZ*RAD));s.userData={ch,ph:i*1.3,flash:0};scene.add(s);stars.push(s)});
+  faint.forEach(f=>scene.remove(f));faint.length=0;faintLines.forEach(l=>scene.remove(l));faintLines.length=0;
+  // the other six titles: each its own faint constellation, letters strung on a wandering line, scattered round the sky
+  CONFIG.others.forEach((title,k)=>{let sd=97+k*31;const r=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};
+    const az0=anchorAz+(k+1)*(2*Math.PI/7)+(r()-.5)*.3,alt0=(24+r()*38)*RAD;let da=0,dh=0,head=r()*6.28;const pts=[];
+    const chars=[...title].filter(c=>c.trim());for(let i=chars.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[chars[i],chars[j]]=[chars[j],chars[i]]}   // shuffled, so the title isn't read straight off the line
+    chars.forEach((ch,n)=>{
+      if(n){head+=(r()-.5)*2.4;const step=5.5+r()*3.5;da+=Math.cos(head)*step;dh+=Math.sin(head)*step*.8}   // a random walk: each letter a few degrees on, turning as it goes
+      const alt=Math.min(70*RAD,Math.max(18*RAD,alt0+dh*RAD)),dir=dirAA(alt,az0+da*RAD/Math.max(.4,Math.cos(alt)));
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:letterTex(ch),transparent:true,depthWrite:false}));sp.scale.setScalar(21000*Math.tan((4.2+r()*1.4)*RAD));
+      sp.material.opacity=.42+r()*.12;sp.userData={ph:r()*6.28,sp:.5+r()*.9,base:sp.material.opacity,s0:sp.scale.clone()};
+      sp.position.copy(dir).multiplyScalar(21000);scene.add(sp);faint.push(sp);pts.push(dir)});
+    const line=[];for(let n=1;n<pts.length;n++)for(let q=0;q<=16;q++)line.push(pts[n-1].clone().lerp(pts[n],q/16).normalize().multiplyScalar(20900));
+    const l=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(line.flatMap((p,q)=>q%17&&q?[line[q-1],p]:[])),new THREE.LineBasicMaterial({color:0xdfe4ee,transparent:true,opacity:.2,depthWrite:false}));
+    l.userData.base=.2;scene.add(l);faintLines.push(l)});
+}
+
+/* the constellation line: grows from star to star, with a soft light running along it */
+const segMat=()=>new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{uP:{value:0},uT:{value:0},uA:{value:1}},
+  vertexShader:`attribute float u;varying float vU;void main(){vU=u;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform float uP,uT,uA;varying float vU;
+    void main(){if(vU>uP)discard;float run=pow(.5+.5*sin((vU*3.-uT*.9)*6.2831853),6.);float head=smoothstep(uP-.08,uP,vU)*step(uP,.999);
+      float a=(.4+.5*run+head*.9)*uA;gl_FragColor=vec4(vec3(.9,.92,1.)*a,a);}`});
+let seq=[],segs=[],solved=false,shakeT=0,titleLabel=null,state="find";
+function segment(a,b){const pts=[],us=[];for(let k=0;k<=48;k++){pts.push(a.clone().lerp(b,k/48).normalize().multiplyScalar(17900));us.push(k/48)}
+  const g=new THREE.BufferGeometry().setFromPoints(pts);g.setAttribute("u",new THREE.Float32BufferAttribute(us,1));
+  const l=new THREE.Line(g,segMat());l.userData.t0=performance.now();scene.add(l);return l}
+const spark=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(.9),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));spark.scale.setScalar(900);spark.visible=false;scene.add(spark);
+function tapStar(s){
+  if(solved)return;
+  const last=seq[seq.length-1];
+  if(last===s){seq.pop();const l=segs.pop();if(l)scene.remove(l);note(SCALE[seq.length]/2,{vol:.07,dur:1.2});return}
+  if(seq.includes(s))return;
+  if(s.userData.ch!==TITLE[seq.length]){s.userData.flash=performance.now();shakeT=performance.now();state="wrong";note(98,{type:"triangle",vol:.14,dur:.9});note(103.83,{type:"triangle",vol:.08,dur:.9});
+    setTimeout(()=>{segs.forEach(l=>scene.remove(l));segs=[];seq=[];state="find"},900);return}
+  if(last)segs.push(segment(last.position,s.position));
+  seq.push(s);s.userData.flash=performance.now();state="going";note(SCALE[seq.length-1]);
+  if(seq.length===TITLE.length){solved=true;setTimeout(reveal,700)}
+}
+function reveal(){
+  const c=new THREE.Vector3();seq.forEach(s=>c.add(s.position));c.normalize();
+  const top=Math.max(...seq.map(s=>altOf(s.position.clone().normalize())));
+  titleLabel=textSprite([{text:CONFIG.title,font:AR(150),color:"rgba(243,239,230,1)"},{text:CONFIG.releaseAr,font:AR(64),color:"rgba(239,234,224,.85)"},{text:CONFIG.releaseEn.toUpperCase(),font:EN(34),color:"rgba(239,234,224,.65)",ls:"7px"}],{dist:18000,deg:12});
+  // just above the ring of letters
+  titleLabel.position.copy(dirAA(altOf(SKY.show)+26*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.material.opacity=0;titleLabel.userData.t0=performance.now();scene.add(titleLabel);
+  state="solved";chime();$("rec").classList.add("call");
+}
+
+/* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; it stays out there, in shadow, brightening toward the release ---------- */
+const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD),COVER_FAR=.55;   // at rest it sits smaller, as if much further away   // nearer than the moon, ~9° across: its disc hides the moon, the halo ring shows round it as a corona
+const cover=new THREE.Group();cover.visible=false;scene.add(cover);
+const coverKey=new THREE.DirectionalLight(0xf2efe8,2.4),coverFill=new THREE.AmbientLight(0x9aa4b4,.55);scene.add(coverKey,coverFill);
+/* it sits in shadow: you see its outline against a faint glow behind it and one lit corner. The light on its face grows day by day until the release (?lit=0..1 previews) */
+const RELEASE=Date.UTC(2026,10,15,19),LIGHT_FROM=Date.UTC(2026,10,1),litQ=new URLSearchParams(location.search).get("lit");
+const coverLit=()=>litQ!==null?Math.max(0,Math.min(1,+litQ)):Math.max(0,Math.min(1,(Date.now()-LIGHT_FROM)/(RELEASE-LIGHT_FROM)));
+const coverCorner=new THREE.PointLight(0xf4f0e6,9,COVER_S*.8,0);coverCorner.position.set(-.47*COVER_S,.47*COVER_S,.1*COVER_S);cover.add(coverCorner);   // a light just off the top-left corner
+const rimTex=(()=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");g.filter="blur(14px)";g.fillStyle="#fff";g.fillRect(40,40,176,176);return new THREE.CanvasTexture(c)})();
+const coverRim=new THREE.Mesh(new THREE.PlaneGeometry(COVER_S*1.4,COVER_S*1.4),new THREE.MeshBasicMaterial({map:rimTex,color:0xc8cfdc,transparent:true,opacity:.2,blending:THREE.AdditiveBlending,depthWrite:false}));
+coverRim.position.z=-.03*COVER_S;cover.add(coverRim);
+const sharpMats=[],ghostMats=[];let sharpRoot=null;
+new GLTFLoader().load("ya-leil-cover.glb?v=2",g=>{const m=g.scene;m.rotation.x=Math.PI/2;m.scale.setScalar(COVER_S);   // Blender's front (+Y in glTF) turned to face +Z, which lookAt points at us
+  m.traverse(o=>{if(o.material){o.material.envMapIntensity=0;o.material.transparent=true;if(o.material.map)o.material.map.anisotropy=8;sharpMats.push(o.material)}});cover.add(m);sharpRoot=m;
+  // the blur: soft copies of the sleeve, a touch apart, with a blurred print; they fade out as it comes into focus over the moon
+  const blurMap=new Map();
+  [[0,0,.5],...[...Array(8)].map((_,i)=>[Math.cos(i*.785)*.014,Math.sin(i*.785)*.014,.13])].forEach(([dx,dy,a])=>{const gm=m.clone();gm.position.set(dx*COVER_S,dy*COVER_S,0);
+    gm.traverse(o=>{if(!o.material)return;const mt=o.material.clone();mt.normalMap=null;mt.depthWrite=false;
+      if(mt.map){if(!blurMap.has(mt.map)){const im=mt.map.image,c=document.createElement("canvas");c.width=c.height=512;const g2=c.getContext("2d");g2.filter="blur(6px)";g2.drawImage(im,0,0,512,512);const bt=new THREE.CanvasTexture(c);bt.colorSpace=THREE.SRGBColorSpace;bt.flipY=mt.map.flipY;blurMap.set(mt.map,bt)}mt.map=blurMap.get(mt.map)}
+      mt.userData.a=a;o.material=mt;ghostMats.push(mt)});cover.add(gm)})});
+let eclipseT0=0;
+function coverRest(t){return dirAA(38*RAD+.5*RAD*Math.sin(t*.31),azOf(SKY.show)+70*RAD+1*RAD*Math.sin(t*.19))}   // far off in its own part of the sky, high and well away from the moon: something to find
+function placeCover(t,now){
+  const rest=coverRest(t),moonDir=SKY.show.clone();let k=eclipseT0?Math.min(1,(now-eclipseT0)/4200):0;k=k*k*(3-2*k);   // eased glide onto the moon
+  const d=rest.clone().lerp(moonDir,k).normalize();cover.position.copy(d).multiplyScalar(COVER_D);cover.scale.setScalar(COVER_FAR+(1-COVER_FAR)*k);cover.lookAt(0,0,0);
+  cover.rotateZ((1-k)*(.32*Math.sin(t*.21)+.08*Math.sin(t*.53)));cover.rotateY((1-k)*(.45+.4*Math.sin(t*.17)));cover.rotateX((1-k)*(.24*Math.sin(t*.29)));   // turning slowly as it drifts, until it settles flat over the moon
+  const lit=coverLit();coverKey.intensity=.06+5*Math.pow(lit,1.6);coverFill.intensity=.03+1.2*Math.pow(lit,1.6);coverCorner.intensity=4.5+4*lit;coverRim.material.opacity=.19+.14*lit+.2*k;
+  sharpMats.forEach(m=>m.opacity=k);if(sharpRoot)sharpRoot.visible=k>.01;ghostMats.forEach(m=>m.opacity=m.userData.a*(1-k));   // blurred far off, sharp once it covers the moon
+  coverKey.position.copy(d).multiplyScalar(COVER_D*.15).add(new THREE.Vector3(-5000,7000,0));   // a hard light from our side, high and to the left, raking across the debossed lines
+  coverKey.target=cover;
+  ringMat.uniforms.uA.value*=1+2.2*k;   // the corona: the halo ring flares round the dark disc
+  return k}
+
+/* ---------- the horizon: layered desert hills, see-through ground ---------- */
+const hills=[];
+function hillLayer(radius,amp,base,seed,top,bottom,alpha){
+  const N=720,pos=[],col=[],idx=[];
+  const prof=a=>{let y=0;for(let k=1;k<=6;k++){y+=Math.sin(a*k*(2.3+seed*.7)+seed*13.1*k)*(1/k)*(k<3?1:.6)}return y*.5+Math.pow(Math.abs(Math.sin(a*(7+seed*3)+seed)),3)*.35};
+  for(let i=0;i<=N;i++){const a=i/N*Math.PI*2,x=Math.sin(a)*radius,z=-Math.cos(a)*radius,yt=radius*Math.tan((base+amp*(prof(a)*.5+.5))*RAD),yb=-radius*Math.tan(14*RAD);
+    pos.push(x,yt,z,x,yb,z);col.push(...top,alpha,...bottom,0)}
+  for(let i=0;i<N;i++){const j=i*2;idx.push(j,j+1,j+2,j+1,j+3,j+2)}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("color",new THREE.Float32BufferAttribute(col,4));g.setIndex(idx);
+  return new THREE.Mesh(g,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:false,side:THREE.DoubleSide}))}
+[[16000,2.2,.5,.31,[.026,.028,.025],[.011,.012,.011],.97],[11000,2.8,.1,.67,[.014,.015,.013],[.006,.0065,.006],.98],
+ [7000,3.4,-.5,.13,[.007,.0075,.007],[.0035,.0038,.0035],.99],[4000,4.2,-1.6,.91,[.0035,.0038,.0035],[.0018,.002,.0018],.995]].forEach(([r,amp,base,seed,top,bot,al],i)=>{const m=hillLayer(r,amp,base,seed,top,bot,al);m.renderOrder=10+i;scene.add(m);hills.push({m,k:1+i})});
+
+/* ---------- daytime: tonight's path of the moon, with its spot at 9 pm ---------- */
+let pathObj=null,pathMark=null,pathInfo=null;
+function buildPath(){
+  if(pathObj){scene.remove(pathObj);pathObj=null}if(pathMark){scene.remove(pathMark);pathMark=null}pathInfo=null;
+  const n=Date.now(),n0=Math.ceil(n/6e5)*6e5,pts=[];let started=false;
+  for(let m=0;m<=26*60;m+=10){const tt=n0+m*6e4,s=skyAt(tt);if(s.sun.y<-.1&&s.moon.y>.01){started=true;pts.push({t:tt,dir:s.moon})}else if(started)break}
+  if(!pts.length)return;
+  const want=new Date(pts[0].t);want.setHours(CONFIG.tonightHour,0,0,0);
+  let mark=pts.reduce((b,p)=>Math.abs(p.t-want)<Math.abs(b.t-want)?p:b,pts[0]);if(Math.abs(mark.t-want)>40*6e4)mark=pts.reduce((b,p)=>p.dir.y>b.dir.y?p:b,pts[0]);
+  const g=new THREE.BufferGeometry().setFromPoints(pts.map(p=>p.dir.clone().multiplyScalar(19000)));
+  pathObj=new THREE.Line(g,new THREE.LineDashedMaterial({color:0xffffff,dashSize:120,gapSize:260,transparent:true,opacity:.7}));pathObj.computeLineDistances();scene.add(pathObj);
+  const tAr=AD(new Intl.DateTimeFormat("ar-EG-u-nu-latn",{hour:"numeric",minute:"2-digit"}).format(mark.t)),tEn=new Intl.DateTimeFormat("en-GB",{hour:"numeric",minute:"2-digit"}).format(mark.t);
+  pathMark=textSprite([{text:`الليلة ${tAr}`,font:AR(60),color:"rgba(243,239,230,.95)"},{text:`TONIGHT ${tEn}`,font:EN(28),color:"rgba(239,234,224,.7)",ls:"5px"}],{dist:19000,deg:5});
+  pathMark.position.copy(dirAA(altOf(mark.dir)-5*RAD,azOf(mark.dir))).multiplyScalar(19000);scene.add(pathMark);pathInfo={mark};
+}
+
+/* ---------- your face in the sky (front camera, optional, stays on the phone) ---------- */
+const faceVideo=document.createElement("video");faceVideo.playsInline=true;faceVideo.muted=true;
+let faceTex=null,faceOn=false,faceK=0,moonK=0;
+const faceMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,uniforms:{map:{value:null},uA:{value:0},uMir:{value:1},uFull:{value:0}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform sampler2D map;uniform float uA,uMir,uFull;varying vec2 vUv;
+    void main(){vec3 c=texture2D(map,vec2(mix(vUv.x,1.-vUv.x,uMir),vUv.y)).rgb;float g=dot(c,vec3(.3,.59,.11));g=smoothstep(.08,.85,g);   // soft grey; mirrored for the front camera only
+      vec2 q=abs(vUv-.5);float m=mix(smoothstep(.5,.18,length((vUv-.5)*vec2(1.,.9))),smoothstep(.5,.3,q.x)*smoothstep(.5,.3,q.y),uFull);   /* an oval for your face; the whole view, edges melted, for the back camera */gl_FragColor=vec4(vec3(.78,.82,1.)*g*m*uA,1.);}`});
+const facePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),faceMat);facePlane.renderOrder=-10;facePlane.visible=false;camera.add(facePlane);
+/* the camera comes on with the first recording, front first (your face, an oval in the sky); the flip button swaps to the back camera (what's in front of you, full screen) and back */
+let camMode=null;
+function stopCam(){const st=faceVideo.srcObject;if(st)st.getTracks().forEach(t=>t.stop());faceVideo.srcObject=null}
+async function setCam(mode){
+  try{
+    stopCam();const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:mode,width:{ideal:720},height:{ideal:960}},audio:false});faceVideo.srcObject=st;faceVideo.play().catch(()=>{});
+    if(!faceTex){faceTex=new THREE.VideoTexture(faceVideo);faceTex.colorSpace=THREE.SRGBColorSpace;faceMat.uniforms.map.value=faceTex}
+    faceMat.uniforms.uMir.value=mode==="user"?1:0;faceMat.uniforms.uFull.value=mode==="user"?0:1;camMode=mode;faceOn=true;facePlane.visible=true;
+    $("face").setAttribute("aria-label",mode==="user"?"Flip to the back camera":"Flip to the front camera");return true
+  }catch(e){if(camMode&&camMode!==mode){const m=camMode;camMode=null;return setCam(m)}   // no other camera: stay on this one
+    faceOn=false;camMode=null;say(["الكاميرا مقفولة","Camera is blocked · allow it in your browser settings"],3000);return false}
+}
+let camBusy=false;
+async function flipCam(){if(camBusy)return;camBusy=true;try{await setCam(camMode==="user"?"environment":"user")}finally{camBusy=false}}
+$("face").onclick=flipCam;
+
+/* ---------- sound: chime on solving, the snippet while recording; both go into the clip ---------- */
+const audio={ctx:null,out:null,dest:null,nodes:[],el:null,buf:null};
+const snipBytes=CONFIG.snippet?fetch(CONFIG.snippet).then(r=>r.arrayBuffer()).catch(()=>null):null;   // fetched while people play, so the clip starts on the beat
+/* iPhones mute web audio when the ring/silent switch is on (videos still play, which is why the clip had sound but the live snippet didn't):
+   ask for "playback" audio, and on older iOS start a silent looping <audio> in the same tap, which does the same */
+function unmuteIOS(){try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  if(audio.keep)return;const n=4410,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,44100,true);v.setUint32(28,88200,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+  const el=new Audio(URL.createObjectURL(new Blob([b],{type:"audio/wav"})));el.loop=true;el.setAttribute("playsinline","");el.play().catch(()=>{});audio.keep=el}
+function audioInit(){unmuteIOS();const A=window.AudioContext||window.webkitAudioContext;if(!A||audio.ctx)return;audio.ctx=new A();audio.out=audio.ctx.createGain();audio.out.connect(audio.ctx.destination);
+  try{audio.dest=audio.ctx.createMediaStreamDestination();audio.out.connect(audio.dest)}catch(e){}
+  if(snipBytes)snipBytes.then(b=>b&&audio.ctx.decodeAudioData(b)).then(d=>{if(d)audio.buf=d}).catch(()=>{})}
+function chime(){if(!audio.ctx)return;const c=audio.ctx,t=c.currentTime;[880,1318.5,1760].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;
+  g.gain.setValueAtTime(0,t+i*.12);g.gain.linearRampToValueAtTime(.12,t+i*.12+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.12+1.6);o.connect(g);g.connect(audio.out);o.start(t+i*.12);o.stop(t+i*.12+1.7)})}
+/* ambient: a low drone in C that starts with the game and swells (and opens up) as you turn toward the moon; it steps aside while the snippet plays */
+const amb={g:null,lp:null,duck:1,last:0};
+function ambientStart(){if(!audio.ctx||amb.g)return;const c=audio.ctx,t=c.currentTime;
+  const g=c.createGain();g.gain.setValueAtTime(0,t);g.connect(audio.out);
+  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=420;lp.Q.value=.7;lp.connect(g);
+  [[65.41,"sine",.5,0],[98,"triangle",.16,-4],[130.81,"sawtooth",.05,-7],[130.81,"sawtooth",.05,7],[196,"sine",.06,3],[155.56,"sine",.035,0]].forEach(([f,type,v,det])=>{   // C, G, a detuned C pair, G, Eb: C minor, open and dark
+    const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;o.detune.value=det;og.gain.value=v;
+    const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.05+Math.random()*.08;lg.gain.value=v*.5;lfo.connect(lg);lg.connect(og.gain);   // slow breathing
+    o.connect(og);og.connect(lp);o.start(t);lfo.start(t)});
+  const n=c.createBuffer(1,c.sampleRate*4,c.sampleRate),d=n.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;   // air: soft filtered noise, like wind over sand
+  const ns=c.createBufferSource();ns.buffer=n;ns.loop=true;const bp=c.createBiquadFilter();bp.type="bandpass";bp.frequency.value=700;bp.Q.value=.6;const ng=c.createGain();ng.gain.value=.025;
+  ns.connect(bp);bp.connect(ng);ng.connect(g);ns.start(t);amb.g=g;amb.lp=lp}
+function ambientUpdate(){if(!amb.g)return;const now=performance.now();if(now-amb.last<120)return;amb.last=now;const t=audio.ctx.currentTime;
+  const ang=fwd.angleTo(moon.position.clone().normalize())/RAD,x=Math.max(0,Math.min(1,(70-ang)/62)),k=x*x*(3-2*x);   // 0 looking away, 1 with the moon in the middle
+  amb.g.gain.setTargetAtTime((.045+.11*k)*amb.duck,t,.4);amb.lp.frequency.setTargetAtTime(380+1500*k,t,.5)}
+/* notes: each right star rings the next step up a C minor line; a wrong one thuds; stepping back drops a step */
+const SCALE=[261.63,311.13,349.23,392,523.25,622.25];   // C Eb F G C Eb
+let echo=null;
+function note(f,{dur=2.2,vol=.13,type="sine"}={}){if(!audio.ctx||rec&&rec.state==="recording")return;const c=audio.ctx,t=c.currentTime;
+  if(!echo){const dl=c.createDelay(1),fb=c.createGain(),wet=c.createGain(),lp=c.createBiquadFilter();dl.delayTime.value=.34;fb.gain.value=.38;wet.gain.value=.35;lp.type="lowpass";lp.frequency.value=2400;
+    dl.connect(lp);lp.connect(fb);fb.connect(dl);lp.connect(wet);wet.connect(audio.out);echo=dl}
+  [[1,1],[2.01,.25],[3,.08]].forEach(([m,a])=>{const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=f*m;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol*a,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dur/m);
+    o.connect(g);g.connect(audio.out);g.connect(echo);o.start(t);o.stop(t+dur+.1)})}
+function playSnippet(){
+  if(!audio.ctx)return;stopSnippet();amb.duck=0;const c=audio.ctx;c.resume();
+  const g=c.createGain();g.gain.setValueAtTime(0,c.currentTime);g.gain.linearRampToValueAtTime(1,c.currentTime+.6);g.connect(audio.out);audio.g=g;
+  if(audio.buf){const s=c.createBufferSource();s.buffer=audio.buf;g.gain.cancelScheduledValues(c.currentTime);g.gain.setValueAtTime(1,c.currentTime);s.connect(g);s.start();audio.nodes.push(s);return}   // the fades are in the file
+  if(CONFIG.snippet){const el=new Audio(CONFIG.snippet);el.crossOrigin="anonymous";c.createMediaElementSource(el).connect(g);el.play().catch(()=>{});audio.el=el;return}
+  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;lp.connect(g);
+  [[110,"sine",.32],[165,"triangle",.12],[220.3,"sine",.1]].forEach(([f,type,v])=>{const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;og.gain.value=v;
+    const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.2+Math.random()*.2;lg.gain.value=v*.6;lfo.connect(lg);lg.connect(og.gain);o.connect(og);og.connect(lp);o.start();lfo.start();audio.nodes.push(o,lfo)});
+}
+function stopSnippet(){const c=audio.ctx;if(!c)return;amb.duck=1;if(audio.g){const g=audio.g,t=c.currentTime;g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(g.gain.value,t);g.gain.linearRampToValueAtTime(0,t+.5)}
+  const nodes=audio.nodes,el=audio.el;setTimeout(()=>{nodes.forEach(n=>{try{n.stop()}catch(e){}});if(el)el.pause()},600);audio.nodes=[];audio.el=null;audio.g=null}
+
+/* ---------- recording: the sky (and your face) with the snippet; the clip opens ready to share ---------- */
+let rec=null,chunks=[],recT0=0,clipBlob=null;
+const stamp=textSprite([{text:`ZAD · ${CONFIG.title} · ${CONFIG.releaseAr}`,font:AR(44),color:"rgba(239,234,224,.8)"}],{dist:10,deg:2.6});stamp.renderOrder=60;stamp.material.depthTest=false;camera.add(stamp);stamp.userData.s0=stamp.scale.clone();
+function startRec(){
+  if(!canvas.captureStream||!window.MediaRecorder){say(["التسجيل مش مدعوم على المتصفح ده","Recording isn't supported in this browser"],3000);return}
+  const tracks=[...canvas.captureStream(30).getVideoTracks()];if(audio.dest)tracks.push(...audio.dest.stream.getAudioTracks());
+  const type=["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
+  try{rec=new MediaRecorder(new MediaStream(tracks),type?{mimeType:type,videoBitsPerSecond:8e6}:undefined)}catch(e){return}
+  chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  rec.onstop=()=>{stopSnippet();amb.duck=1;clipBlob=new Blob(chunks,{type:rec.mimeType||type||"video/mp4"});const v=$("clip");v.src=URL.createObjectURL(clipBlob);$("sheet").hidden=false;v.play().catch(()=>{})};
+  amb.duck=0;if(amb.g){const t=audio.ctx.currentTime;amb.g.gain.cancelScheduledValues(t);amb.g.gain.setTargetAtTime(0,t,.04)}   // the drone and notes step out of the clip entirely, at once
+  rec.start(250);recT0=performance.now();$("rec").classList.add("on");$("rec").classList.remove("call");
+  if(solved)playSnippet();   // the snippet starts with the recording, so every clip opens on the hook
+}
+function stopRec(){if(rec&&rec.state!=="inactive")rec.stop();$("rec").classList.remove("on")}
+$("rec").onclick=async()=>{unmuteIOS();audio.keep&&audio.keep.play().catch(()=>{});audio.ctx&&audio.ctx.resume();
+  if(rec&&rec.state==="recording")return stopRec();
+  if(!camMode&&!camBusy){camBusy=true;try{await setCam("user")}finally{camBusy=false}}   // first recording: ask for the camera now and start on your face; a refusal still records the sky
+  startRec()};
+const clipName=()=>`ya-leil-sky.${(clipBlob.type||"").includes("webm")?"webm":"mp4"}`;
+$("again").onclick=()=>{$("sheet").hidden=true;URL.revokeObjectURL($("clip").src)};
+$("share").onclick=async()=>{const file=new File([clipBlob],clipName(),{type:clipBlob.type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:CONFIG.titleEn})}catch(e){}}else $("save").click()};
+$("save").onclick=()=>{const a=document.createElement("a");a.href=$("clip").src;a.download=clipName();document.body.append(a);a.click();a.remove()};
+
+/* ---------- looking around: the phone's motion (gyroscope + compass), or dragging on a computer ---------- */
+const ORI={ok:false,offset:null,q:new THREE.Quaternion(),target:new THREE.Quaternion()};
+function rotMatrix(a,b,g){const cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
+  return [cA*cG-sA*sB*sG,-cB*sA,cG*sA*sB+cA*sG, cG*sA+cA*sB*sG,cA*cB,sA*sG-cA*cG*sB, -cB*sG,sB,cB*cG]}
+const mul=(R,v)=>[R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
+const wrap=a=>{a%=360;return a<-180?a+360:a>180?a-360:a};
+const m4=new THREE.Matrix4(),vR=new THREE.Vector3(),vU=new THREE.Vector3(),vB=new THREE.Vector3();
+function onOrient(e){
+  if(e.alpha==null||e.beta==null)return;
+  let R=rotMatrix(e.alpha*RAD,e.beta*RAD,e.gamma*RAD);
+  if(e.webkitCompassHeading!=null){   // iOS: alpha comes from the gyro (smooth, but its zero is arbitrary); the compass gives north but wanders.
+    // So: average the compass over the first 2 s held up, then hold that still. Only a big, lasting disagreement
+    // (the compass recalibrating) eases it back; small compass wobble never moves the sky, which is what made it drift off the moon.
+    const upright=Math.abs(e.beta)>50&&Math.abs(e.beta)<130,now=performance.now();
+    if(upright||ORI.offset==null){const v=upright?mul(R,[0,0,-1]):mul(R,[0,1,0]),rel=Math.atan2(v[0],v[1])/RAD,off=wrap(e.webkitCompassHeading+CONFIG.declination-rel);
+      if(ORI.offset==null)ORI.offset=off;
+      if(upright&&!ORI.t0){ORI.t0=now;ORI.sx=0;ORI.sy=0}
+      if(upright&&now-ORI.t0<2000){ORI.sx+=Math.cos(off*RAD);ORI.sy+=Math.sin(off*RAD);ORI.offset=Math.atan2(ORI.sy,ORI.sx)/RAD}
+      else if(upright){const d=wrap(off-ORI.offset);if(Math.abs(d)>20){ORI.far=ORI.far||now;if(now-ORI.far>2500)ORI.offset=wrap(ORI.offset+d*.03)}else ORI.far=0}
+      else if(!ORI.t0)ORI.offset+=wrap(off-ORI.offset)*.02}
+  }else if(e.absolute||e.type==="deviceorientationabsolute")ORI.offset=CONFIG.declination;
+  if(ORI.offset!=null){const o=-ORI.offset*RAD,c=Math.cos(o),s=Math.sin(o);R=[c*R[0]-s*R[3],c*R[1]-s*R[4],c*R[2]-s*R[5],s*R[0]+c*R[3],s*R[1]+c*R[4],s*R[2]+c*R[5],R[6],R[7],R[8]]}
+  const ang=((screen.orientation&&screen.orientation.angle)||window.orientation||0)*RAD;
+  const toThree=(v,out)=>out.set(v[0],v[2],-v[1]);   // east-north-up → three.js
+  toThree(mul(R,[Math.cos(ang),-Math.sin(ang),0]),vR);toThree(mul(R,[Math.sin(ang),Math.cos(ang),0]),vU);toThree(mul(R,[0,0,1]),vB);
+  m4.makeBasis(vR,vU,vB);ORI.target.setFromRotationMatrix(m4);
+  if(!ORI.ok){ORI.q.copy(ORI.target);ORI.ok=true}
+}
+async function startOrientation(){
+  try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==="function"){const r=await DeviceOrientationEvent.requestPermission();if(r!=="granted")return}}catch(e){return}
+  addEventListener("ondeviceorientationabsolute" in window?"deviceorientationabsolute":"deviceorientation",onOrient);
+}
+let yaw=anchorAz,pitch=Math.max(anchorAlt+8*RAD,20*RAD),vy=0,vp=0,drag=null;
+function starAt(x,y){let best=null,bd=46;const p=new THREE.Vector3();stars.forEach(s=>{p.copy(s.position).project(camera);if(p.z>1)return;
+  const d=Math.hypot((p.x+1)/2*innerWidth-x,(1-p.y)/2*innerHeight-y);if(d<bd){bd=d;best=s}});return best}
+function titleTapped(x,y){if(!titleLabel)return false;const p=titleLabel.position.clone().project(camera);return p.z<1&&Math.hypot((p.x+1)/2*innerWidth-x,(1-p.y)/2*innerHeight-y)<90}
+const touches=new Map();let pinch=null,lastTap=0;
+const spread=()=>{const a=[...touches.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)};
+canvas.addEventListener("pointerdown",e=>{audio.ctx&&audio.ctx.resume();touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(touches.size===2){pinch={d0:spread(),z0:ZOOM.t};if(drag)drag.moved=true;return}   // two fingers: pinch to zoom
+  drag={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,moved:false};canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener("pointermove",e=>{if(touches.has(e.pointerId))touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&touches.size>=2){setZoom(pinch.z0*pinch.d0/Math.max(20,spread()))}});
+canvas.addEventListener("wheel",e=>{e.preventDefault();setZoom(ZOOM.t*Math.exp(e.deltaY*.0016))},{passive:false});
+addEventListener("pointercancel",e=>{touches.delete(e.pointerId);if(touches.size<2)pinch=null});
+canvas.addEventListener("pointermove",e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)>8)drag.moved=true;if(!drag.moved||ORI.ok)return;
+  const k=camera.fov*RAD/Math.max(360,innerHeight)*1.1;vy=-(e.clientX-drag.x)*k;vp=(e.clientY-drag.y)*k;yaw+=vy;pitch+=vp;drag.x=e.clientX;drag.y=e.clientY});
+addEventListener("pointerup",e=>{touches.delete(e.pointerId);const wasPinch=!!pinch;if(touches.size<2)pinch=null;
+  if(drag&&!drag.moved&&!wasPinch){const s=starAt(e.clientX,e.clientY);
+    if(s)tapStar(s);else if(solved&&titleTapped(e.clientX,e.clientY))playSnippet();
+    else{const n=performance.now();if(n-lastTap<320){setZoom(ZOOM.t>.7?.42:1);lastTap=0}else lastTap=n}}   // double-tap the sky: jump in / back out
+  drag=null});
+
+/* ---------- subtitles and guidance ---------- */
+let riseCache={t:0,v:null};
+function moonRise(){const n=Date.now();if(n-riseCache.t>6e4){riseCache.t=n;riseCache.v=null;let prev=skyAt(n).moon.y;
+    for(let m=10;m<=30*60;m+=10){const y=skyAt(n+m*6e4).moon.y;if(prev<=0&&y>0){riseCache.v=n+m*6e4;break}prev=y}}
+  const v=riseCache.v;return v?{ar:AD(new Intl.DateTimeFormat("ar-EG-u-nu-latn",{hour:"numeric",minute:"2-digit"}).format(v)),en:new Intl.DateTimeFormat("en-GB",{hour:"numeric",minute:"2-digit"}).format(v)}:null}
+let sayUntil=0;
+function say(pair,ms){$("subAr").textContent=pair[0];$("subEn").textContent=pair[1];if(ms)sayUntil=performance.now()+ms}
+const SUB={find:["المس النجوم بالترتيب عشان ترسم اسم الأغنية","Tap the stars in order to draw the song's title"],
+  going:["كمّل · المس آخر نجمة عشان ترجع خطوة","Keep going · tap the last star to step back"],
+  wrong:["مش بالترتيب ده · جرّب تاني","Not in that order · try again"],
+  solved:[`${CONFIG.title} · سجّل وانت بتسمعها`,`${CONFIG.titleEn} · record it while you listen`]};
+function guide(){
+  if(performance.now()<sayUntil)return;
+  const c=new THREE.Vector3();stars.forEach(s=>c.add(s.position));if(!stars.length)return;c.normalize().multiplyScalar(18000);
+  const inView=v=>{const q=v.clone().project(camera);return q.z<1&&Math.abs(q.x)<.9&&Math.abs(q.y)<.85};
+  const ar=$("arrow"),on=inView(c)||inView(moon.position)||stars.some(st=>inView(st.position));   // on target when the moon or any of its stars is in view
+  const down=SKY.moon.y<0,r=down?moonRise():null;
+  if(on||rec&&rec.state==="recording"){ar.setAttribute("hidden","");
+    if(state==="find"&&down&&r)say([`القمر بيطلع الساعة ${r.ar} · المس النجوم بالترتيب`,`The moon rises at ${r.en} · tap the stars in order`]);
+    else say(SUB[state]||SUB.find);return}
+  // off screen: an arrow at the edge and words for the way to turn
+  const v=c.clone().applyMatrix4(camera.matrixWorldInverse);let ang=Math.atan2(-v.y,v.x);if(v.z>0&&Math.abs(v.x)<1e-3)ang=-Math.PI/2;
+  const W=innerWidth,H=innerHeight,ex=W/2+Math.cos(ang)*(W/2-44),ey=H/2+Math.sin(ang)*(H/2-150);
+  ar.removeAttribute("hidden");ar.style.transform=`translate(${ex}px,${ey}px) rotate(${ang+Math.PI/2}rad)`;
+  const horiz=Math.abs(Math.cos(ang))>Math.abs(Math.sin(ang));
+  const dAr=horiz?(Math.cos(ang)>0?"لف يمين":"لف شمال"):(Math.sin(ang)<0?"ارفع لفوق":"نزّل لتحت"),dEn=horiz?(Math.cos(ang)>0?"turn right":"turn left"):(Math.sin(ang)<0?"tilt up":"tilt down");
+  say([`القمر ونجومه هناك · ${dAr}`,`The moon and its stars are that way · ${dEn}`]);
+}
+
+/* ---------- compass bar ---------- */
+{const NAMES={0:"N",45:"NE",90:"E",135:"SE",180:"S",225:"SW",270:"W",315:"NW"};let html="";
+  for(let rep=0;rep<3;rep++)for(let d=0;d<360;d+=5){const n=NAMES[d];html+=n?`<span class="t c"><b>${n}</b></span>`:`<span class="t"><i style="height:${d%15===0?11:6}px"></i></span>`}
+  $("strip").innerHTML=html}
+
+/* ---------- loop ---------- */
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);if(window.__comp){__comp.setSize(w,h);__bloom.resolution.set(w/2,h/2)}camera.aspect=w/h;ZOOM.base=w<h?72:56;camera.fov=ZOOM.base*ZOOM.k;camera.updateProjectionMatrix()}
+const QV=new URLSearchParams(location.search);
+if(!QV.has("nobloom")){const comp=new EffectComposer(renderer);comp.addPass(new RenderPass(scene,camera));const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),.3,.28,.9);comp.addPass(bloom);comp.addPass(new OutputPass());window.__comp=comp;window.__bloom=bloom}
+addEventListener("resize",resize);resize();
+const clock=new THREE.Clock();let lastSky=0;
+const fwd=new THREE.Vector3();
+function frame(){
+  const t=clock.getElapsedTime(),now=performance.now();
+  if(now-lastSky>30000){lastSky=now;SKY=withShow(skyAt(TQ));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
+    starsMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;placeMoon();alignGalaxy();
+    if(!seq.length&&!solved){chooseAnchor();stars.forEach((s,i)=>s.position.copy(starDir(i)).multiplyScalar(18000))}   // follow the moon until the game starts
+    const dayish=SKY.sun.y>-.1;if(dayish&&!pathInfo)buildPath();if(!dayish&&pathObj){scene.remove(pathObj,pathMark);pathObj=pathMark=null;pathInfo=null}
+    const lift=1+1.5*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));hills.forEach(h=>h.m.material.color.setScalar(lift))}
+  { // zoom: ease toward the target; the speed of the change drives the star streaks
+    const prev=ZOOM.k;ZOOM.k+=(ZOOM.t-ZOOM.k)*.12;const f=ZOOM.base*ZOOM.k;
+    if(Math.abs(camera.fov-f)>1e-4){camera.fov=f;camera.updateProjectionMatrix()}
+    const w=reduced?0:(prev-ZOOM.k)/Math.max(.05,ZOOM.k)*7;ZOOM.warp+=(w-ZOOM.warp)*.35;streakMat.uniforms.uW.value=ZOOM.warp;
+    stamp.visible=!document.body.classList.contains("pre");
+    const fh=2*10*Math.tan(camera.fov/2*RAD);stamp.position.set(0,fh/2-fh*.06,-10);stamp.scale.copy(stamp.userData.s0).multiplyScalar(Math.tan(camera.fov/2*RAD)/Math.tan(36*RAD))}
+  if(ORI.ok){ORI.q.slerp(ORI.target,.25);camera.quaternion.copy(ORI.q)}
+  else{if(!drag){yaw+=vy;pitch+=vp;vy*=.92;vp*=.92;if(document.body.classList.contains("pre")&&!reduced)yaw+=.00035}   /* the start screen: a slow drift across the sky */pitch=Math.max(-40*RAD,Math.min(85*RAD,pitch));camera.lookAt(dirAA(pitch,yaw))}
+  camera.updateMatrixWorld();camera.getWorldDirection(fwd);ambientUpdate();
+  const hd=((azOf(fwd)/RAD)%360+360)%360;$("strip").style.transform=`translateX(${-(360+hd)*3-7.5}px)`;
+  starsMat.uniforms.t.value=t;if(!reduced)ringMat.uniforms.uRot.value=t*.01;ringMat.uniforms.uA.value=1-.2*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));
+  let head=null;
+  segs.forEach(l=>{const p=Math.min(1,(now-l.userData.t0)/(reduced?1:700));l.material.uniforms.uP.value=p;l.material.uniforms.uT.value=t;
+    l.material.uniforms.uA.value=solved?1.35:(shakeT&&now-shakeT<900?.4:1);if(p<1){const a=l.geometry.attributes.position,k=Math.round(p*48);head=new THREE.Vector3(a.getX(k),a.getY(k),a.getZ(k))}});
+  spark.visible=!!head;if(head)spark.position.copy(head);
+  stars.forEach(s=>{const f=s.userData.flash?Math.max(0,1-(now-s.userData.flash)/600):0,inSeq=seq.includes(s);
+    s.material.opacity=Math.min(1,(inSeq?1:.8+.2*Math.sin(t*1.8+s.userData.ph))+f*.3);s.scale.setScalar(18000*Math.tan((LSZ+f*1.2+(inSeq?.4:0))*RAD))});
+  faint.forEach(f=>{const b=Math.sin(t*f.userData.sp+f.userData.ph);f.material.opacity=f.userData.base*(.6+.4*b);f.scale.copy(f.userData.s0).multiplyScalar(1+.05*b)});   // a slow glow, each at its own pace
+  if(titleLabel)titleLabel.material.opacity=Math.max(0,Math.min(1,(now-titleLabel.userData.t0)/1200));
+  // face: fades in and fills most of the frame, a ghost in the sky
+  faceK+=((faceOn?1:0)-faceK)*.06;facePlane.visible=faceK>.01;
+  skyMat.uniforms.uEnv.value=1-.45*faceK;starsMat.uniforms.uEnv.value=1-.25*faceK;   // the camera reads clearly: the sky steps back under it
+  const pre=document.body.classList.contains("pre"),recOn=!!(rec&&rec.state==="recording");
+  hills.forEach(h=>h.m.visible=!recOn);   // the clip is only sky, stars and the moon
+  moonK+=((pre?0:1)-moonK)*.04;skyMat.uniforms.uMK.value=moonK;   // the opening screen is sky and stars; the moon and its letters arrive once you start
+  moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK});ringMat.uniforms.uA.value*=moonK;
+  stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});faintLines.forEach(l=>{l.visible=moonK>.01;l.material.opacity=l.userData.base*moonK});
+  if(pathObj)pathObj.visible=pathMark.visible=!pre;
+  cover.visible=moonK>.01&&!!sharpRoot;if(cover.visible)placeCover(t,now);
+  if(facePlane.visible){const fh=2*10*Math.tan(camera.fov/2*RAD),ar=faceVideo.videoWidth&&faceVideo.videoHeight?faceVideo.videoWidth/faceVideo.videoHeight:.75;
+    if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.08;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.5*faceK}   // fills the screen
+    else{facePlane.scale.set(fh*.78*ar,fh*.78,1);facePlane.position.set(0,fh*.04,-10);faceMat.uniforms.uA.value=.6*faceK}}
+  if(rec&&rec.state==="recording"){const p=Math.min(1,(now-recT0)/(CONFIG.clipSeconds*1000));$("recArc").setAttribute("stroke-dashoffset",String(153.9*(1-p)));if(p>=1)stopRec()}
+  else $("recArc").setAttribute("stroke-dashoffset","153.9");
+  guide();
+  if(window.__comp)__comp.render();else renderer.render(scene,camera);
+}
+
+/* ---------- start ---------- */
+$("go").onclick=async()=>{
+  audioInit();ambientStart();await startOrientation();
+  navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{geo={lat:p.coords.latitude,lng:p.coords.longitude};lastSky=0},()=>{},{timeout:8000,maximumAge:6e5});
+  try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}
+  $("start").hidden=true;$("row").hidden=false;document.body.classList.remove("pre");
+};
+document.fonts.load(AR(104)).catch(()=>{}).then(makeLetters);makeLetters();
+lastSky=-1e9;renderer.setAnimationLoop(frame);
+/* small textures first so the sky appears at once; the sharp ones swap in quietly afterwards */
+const upgrade=(tex,url)=>new THREE.TextureLoader().load(url,t=>{tex.image=t.image;tex.needsUpdate=true});
+const sharpen=()=>{upgrade(mwTex,"milkyway-md.jpg");upgrade(moonTex,"moon-color.jpg");upgrade(coverTex,"cover-md.jpg")};
+document.readyState==="complete"?sharpen():addEventListener("load",sharpen,{once:true});   // as soon as the small ones are in
+let fullMW=false;setInterval(()=>{if(!fullMW&&!document.body.classList.contains("pre")&&ZOOM.k<.75){fullMW=true;upgrade(mwTex,"milkyway.jpg")}},2000);   // the full-size Milky Way only once someone zooms in
+window.__sky={stars,tapStar,cover,camera,onOrient,ORI,amb,facePlane,faceVideo,renderer,get state(){return state}};   // test handle
+</script>
+</body>
+</html>
