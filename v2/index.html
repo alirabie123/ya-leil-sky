@@ -628,7 +628,7 @@ function guide(){
   const ar=$("arrow"),on=inView(c)||inView(moon.position)||stars.some(st=>inView(st.position));   // on target when the moon or any of its stars is in view
   const down=SKY.moon.y<0,r=down?moonRise():null;
   if(on||rec&&rec.state==="recording"){ar.setAttribute("hidden","");
-    if(state==="find"&&down&&r)say([`القمر بيطلع الساعة ${r.ar} · المس النجوم بالترتيب`,`The moon rises at ${r.en} · tap the stars in order`]);
+    if(state==="find"&&down&&r)say(["المس النجوم بالترتيب عشان ترسم اسم الأغنية","Tap the stars in order to draw the song's title"]);
     else say(SUB[state]||SUB.find);return}
   // off screen: an arrow at the edge and words for the way to turn
   const v=c.clone().applyMatrix4(camera.matrixWorldInverse);let ang=Math.atan2(-v.y,v.x);if(v.z>0&&Math.abs(v.x)<1e-3)ang=-Math.PI/2;
