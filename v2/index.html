@@ -498,7 +498,7 @@ function buildPath(){
   pathObj=new THREE.Line(g,new THREE.LineDashedMaterial({color:0xffffff,dashSize:120,gapSize:260,transparent:true,opacity:.7}));pathObj.computeLineDistances();scene.add(pathObj);
   const tAr=AD(new Intl.DateTimeFormat("ar-EG-u-nu-latn",{hour:"numeric",minute:"2-digit"}).format(mark.t)),tEn=new Intl.DateTimeFormat("en-GB",{hour:"numeric",minute:"2-digit"}).format(mark.t);
   pathMark=textSprite([{text:`الليلة ${tAr}`,font:AR(60),color:"rgba(243,239,230,.95)"},{text:`TONIGHT ${tEn}`,font:EN(28),color:"rgba(239,234,224,.7)",ls:"5px"}],{dist:19000,deg:5});
-  pathMark.position.copy(dirAA(altOf(mark.dir)-5*RAD,azOf(mark.dir))).multiplyScalar(19000);scene.add(pathMark);pathInfo={mark};
+  pathMark.position.copy(dirAA(altOf(mark.dir)-5*RAD,azOf(mark.dir))).multiplyScalar(19000);pathInfo={mark};
 }
 
 /* ---------- your face in the sky (front camera, optional, stays on the phone) ---------- */
