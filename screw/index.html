@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ya Leil Screw Player</title>
+<title>Ya Leil · Slowed</title>
 <style>
   :root{--ink:#ecebe6;--dim:rgba(236,235,230,.42)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:#050506;overflow:hidden;font:12px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink)}
   .stage{position:fixed;inset:0;display:grid;place-items:center}
-  .device{position:relative;height:min(100vh,calc(100vw*16/9));aspect-ratio:9/16;background:url(bg.jpg) center/cover;touch-action:none;user-select:none}
+  .device{position:relative;height:min(100vh,calc(100vw*16/9));aspect-ratio:9/16;background:url(art.jpg) center/cover;touch-action:none;user-select:none}
   svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
   .lbl{font-size:17px;letter-spacing:6px;fill:var(--dim);text-anchor:middle;dominant-baseline:middle;transition:fill .3s}
   .lbl.on{fill:rgba(236,235,230,.85)}
@@ -19,24 +19,26 @@
       <radialGradient id="dotGlow"><stop offset="0" stop-color="#f4f6ff" stop-opacity="1"/><stop offset=".35" stop-color="#dfe7ff" stop-opacity=".55"/><stop offset="1" stop-color="#dfe7ff" stop-opacity="0"/></radialGradient>
       <radialGradient id="coreGlow"><stop offset="0" stop-color="#dfe7ff" stop-opacity=".16"/><stop offset="1" stop-color="#dfe7ff" stop-opacity="0"/></radialGradient>
     </defs>
+    <image id="disc" href="disc.png" x="20" y="435" width="1048" height="1048" transform="rotate(-90 544.27 958.85)"/>
     <g id="arcs"></g>
-    <circle id="core" cx="533.4" cy="959.8" r="372" fill="url(#coreGlow)" opacity="0"/>
-    <circle id="head" r="7" fill="#f4f6ff" opacity="0"/>
+    <circle id="core" cx="544.3" cy="958.9" r="300" fill="url(#coreGlow)" opacity="0"/>
+    <circle id="head" r="6" fill="#f4f6ff" opacity="0"/>
+    <text id="readout" x="544" y="1600" class="lbl on" style="font-size:22px;letter-spacing:9px" opacity="0"></text>
     <g id="play" opacity=".75"><path id="icon" fill="rgba(236,235,230,.85)"/></g>
   </svg>
-  <div class="hint" id="hint">TAP THE MOON · DRAG THE HALO</div>
+  <div class="hint" id="hint">TAP THE CENTRE · DRAG THE RIM</div>
 </div></div>
 
 <script>
 /* geometry measured on the artwork (1080x1920): the inner disc and the ribbed halo around it */
-const CX=533.4, CY=959.8, DISC=374.7, RING=448;          // the touch arcs run along the middle of the halo
+const CX=544.27, CY=958.85, DISC=300, RING=488, EDGE=520.4;   // the record's disc; strips run in the band inside its rim          // the touch arcs run along the middle of the halo
 const ARCS=[ // the Stem Player's four strips, bent round the halo; angles in degrees, 0 = up, clockwise
   {id:"slow",   label:"SLOW",   mid:0,   v:0},
   {id:"reverb", label:"REVERB", mid:90,  v:0},
   {id:"chop",   label:"CHOP",   mid:180, v:0},
   {id:"depth",  label:"DEPTH",  mid:270, v:0},
 ];
-const SPAN=64, DOTS=9;                                     // each arc covers 64 degrees, nine lights
+const SPAN=56, DOTS=9;                                     // each arc covers 64 degrees, nine lights
 const svg=document.getElementById("svg"), G=document.getElementById("arcs"), NS="http://www.w3.org/2000/svg";
 const pt=(deg,r)=>{const a=(deg-90)*Math.PI/180;return [CX+r*Math.cos(a),CY+r*Math.sin(a)]};
 
@@ -50,13 +52,11 @@ ARCS.forEach(A=>{
     const glow=document.createElementNS(NS,"circle");glow.setAttribute("cx",x);glow.setAttribute("cy",y);glow.setAttribute("r","26");glow.setAttribute("fill","url(#dotGlow)");glow.setAttribute("opacity","0");g.appendChild(glow);
     const dot=document.createElementNS(NS,"circle");dot.setAttribute("cx",x);dot.setAttribute("cy",y);dot.setAttribute("r","4.5");dot.setAttribute("fill","rgba(236,235,230,.22)");g.appendChild(dot);
     return {glow,dot}});
-  const [lx,ly]=pt(A.mid,RING+44), rot=A.mid===90?90:A.mid===270?-90:0;
-  const t=document.createElementNS(NS,"text");t.setAttribute("x",lx);t.setAttribute("y",ly);t.setAttribute("class","lbl");
-  t.setAttribute("transform",`rotate(${rot} ${lx} ${ly})`);t.textContent=A.label;g.appendChild(t);A.text=t;
+
 });
 function paint(){ARCS.forEach(A=>{const lit=A.v*DOTS;
   A.dots.forEach((d,i)=>{const k=Math.max(0,Math.min(1,lit-i));d.dot.setAttribute("fill",k>0?`rgba(244,246,255,${.35+.65*k})`:"rgba(236,235,230,.22)");d.glow.setAttribute("opacity",(.9*k).toFixed(2))});
-  A.text.classList.toggle("on",A.v>0.02)})}
+  })}
 paint();
 
 /* ---------- audio: a looped snippet through tape speed, a chop, a low-pass and a long hall ---------- */
@@ -96,10 +96,12 @@ setInterval(()=>{const c=ARCS[2].v;if(!playing||c<.02)return;if(Math.random()<c*
 const dev=document.getElementById("dev");let drag=null;
 function toSvg(e){const r=svg.getBoundingClientRect();return [(e.clientX-r.left)/r.width*1080,(e.clientY-r.top)/r.height*1920]}
 function hit(x,y){const dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy);let ang=(Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
-  if(d<DISC-10)return {disc:true};if(d<DISC||d>RING+150)return null;
+  if(d<DISC)return {disc:true};if(d<RING-55||d>EDGE+40)return null;
   for(const A of ARCS){let rel=((ang-A.mid+540)%360)-180;if(Math.abs(rel)<=SPAN/2+10)return {A}}return null}
 function setFrom(A,x,y){let ang=(Math.atan2(y-CY,x-CX)*180/Math.PI+90+360)%360,rel=((ang-A.mid+540)%360)-180;
-  A.v=Math.max(0,Math.min(1,(rel+SPAN/2)/SPAN));paint();apply()}
+  A.v=Math.max(0,Math.min(1,(rel+SPAN/2)/SPAN));paint();apply();show(A)}
+let showT=0;function show(A){const ro=document.getElementById('readout');
+  ro.textContent=A.id==='slow'?`SLOW  ${(1-.38*A.v).toFixed(2)}×`:`${A.label}  ${Math.round(A.v*100)}`;showT=performance.now()}
 dev.addEventListener("pointerdown",e=>{const [x,y]=toSvg(e),h=hit(x,y);if(!h)return;dev.setPointerCapture(e.pointerId);
   if(h.disc){toggle();return}drag=h.A;setFrom(drag,x,y)});
 dev.addEventListener("pointermove",e=>{if(!drag)return;const [x,y]=toSvg(e);setFrom(drag,x,y)});
@@ -108,9 +110,12 @@ addEventListener("pointerup",()=>drag=null);
 /* ---------- the play icon, the glow that breathes with the music's speed, the playhead round the disc ---------- */
 const icon=document.getElementById("icon"),head=document.getElementById("head"),core=document.getElementById("core");
 function frame(){
-  icon.setAttribute("d",playing?`M${CX-22} ${CY-30}h14v60h-14zM${CX+8} ${CY-30}h14v60h-14z`:`M${CX-16} ${CY-32}L${CX+30} ${CY}L${CX-16} ${CY+32}z`);
+  const IY=CY+215;icon.setAttribute("d",playing?`M${CX-13} ${IY-17}h8v34h-8zM${CX+5} ${IY-17}h8v34h-8z`:`M${CX-10} ${IY-18}L${CX+17} ${IY}L${CX-10} ${IY+18}z`);
   document.getElementById("play").setAttribute("opacity",playing?.22:.75);
-  if(buf){const p=now()/buf.duration,[x,y]=pt(p*360,DISC+8);head.setAttribute("cx",x);head.setAttribute("cy",y);head.setAttribute("opacity",playing?.9:.35)}
+  {const dt=Math.min(.05,(performance.now()-(window.__lt||performance.now()))/1000);window.__lt=performance.now();
+   window.__ang=((window.__ang??-90)+(playing?rate:0)*dt*40)%360;document.getElementById('disc').setAttribute('transform',`rotate(${window.__ang} ${CX} ${CY})`);
+   const ro=document.getElementById('readout');ro.setAttribute('opacity',Math.max(0,1-(performance.now()-showT-900)/600).toFixed(2))}
+  if(buf){const p=now()/buf.duration,[x,y]=pt(p*360,EDGE-14);head.setAttribute("cx",x);head.setAttribute("cy",y);head.setAttribute("opacity",playing?.9:.35)}
   const t=performance.now()/1000;core.setAttribute("opacity",playing?(.55+.45*Math.sin(t*2.2*rate)).toFixed(2):0);
   requestAnimationFrame(frame)}
 frame();
