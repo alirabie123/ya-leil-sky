@@ -111,8 +111,8 @@ mk("circle",{cx:KX,cy:KY,r:KR*.42,fill:"none",stroke:"rgba(236,235,230,.16)","st
 ARCS.forEach(A=>{const a0=A.mid-SPAN/2;
   mk("path",{d:karc(a0,a0+SPAN,KR),fill:"none",stroke:"rgba(236,235,230,.45)","stroke-width":2.2,"stroke-linecap":"round"});
   A.kfill=mk("path",{d:karc(a0,a0+.01,KR),fill:"none",stroke:"#f4f6ff","stroke-width":2.6,"stroke-linecap":"round",opacity:0});
-  const off=KR+(A.mid%180?22:28),[x,y]=kpt(A.mid,off),anc=A.mid===90?"start":A.mid===270?"end":"middle";
-  A.klbl=mk("text",{x,y,class:"lbl","text-anchor":anc,style:"font-size:16px;letter-spacing:5px"});A.klbl.textContent=A.label});
+  const off=KR+(A.mid%180?24:30),[x,y]=kpt(A.mid,off),anc=A.mid===90?"start":A.mid===270?"end":"middle";
+  A.klbl=mk("text",{x,y,class:"lbl",style:`font-size:16px;letter-spacing:5px;text-anchor:${anc}`});A.klbl.textContent=A.label});
 function show(A){A.klbl.textContent=A.id==='slow'?`SLOW ${(1-.38*A.v).toFixed(2)}×`:`${A.label} ${Math.round(A.v*100)}`;clearTimeout(A.kt);A.kt=setTimeout(()=>A.klbl.textContent=A.label,1400)}
 function paintKey(){ARCS.forEach(A=>{if(!A.kfill)return;const a0=A.mid-SPAN/2;A.kfill.setAttribute("d",karc(a0,a0+Math.max(.01,SPAN*A.v),KR));A.kfill.setAttribute("opacity",A.v>.01?.95:0);A.klbl.classList.toggle("on",A.v>.02)})}
 dev.addEventListener("pointerdown",e=>{const [x,y]=toSvg(e),h=hit(x,y);if(!h)return;dev.setPointerCapture(e.pointerId);
