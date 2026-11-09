@@ -61,9 +61,10 @@ paint();
 /* ---------- audio: a looped snippet through tape speed, a chop, a low-pass and a long hall ---------- */
 let ctx,buf,src=null,playing=false,pos=0,startAt=0,rate=1,targetRate=1;
 let dry,wet,lp,conv,out;
+const SONG=fetch("ya-leil.mp3?v=full1").then(r=>r.arrayBuffer());   // the full song starts downloading as the page opens
 async function initAudio(){
   ctx=new (window.AudioContext||window.webkitAudioContext)();
-  const data=await (await fetch("ya-leil.mp3")).arrayBuffer();buf=await ctx.decodeAudioData(data);
+  const data=await SONG;buf=await ctx.decodeAudioData(data);
   out=ctx.createGain();out.connect(ctx.destination);
   lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=20000;lp.Q.value=.7;
   dry=ctx.createGain();wet=ctx.createGain();wet.gain.value=0;conv=ctx.createConvolver();conv.buffer=hall(4.2);
