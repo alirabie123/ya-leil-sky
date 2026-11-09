@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ya Leil Screw Player</title>
+<style>
+  :root{--ink:#ecebe6;--dim:rgba(236,235,230,.42)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:#050506;overflow:hidden;font:12px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink)}
+  .stage{position:fixed;inset:0;display:grid;place-items:center}
+  .device{position:relative;height:min(100vh,calc(100vw*16/9));aspect-ratio:9/16;background:url(bg.jpg) center/cover;touch-action:none;user-select:none}
+  svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .lbl{font-size:17px;letter-spacing:6px;fill:var(--dim);text-anchor:middle;dominant-baseline:middle;transition:fill .3s}
+  .lbl.on{fill:rgba(236,235,230,.85)}
+  .hint{position:absolute;left:0;right:0;bottom:7%;text-align:center;letter-spacing:.32em;font-size:10px;color:var(--dim);transition:opacity .8s}
+</style></head>
+<body>
+<div class="stage"><div class="device" id="dev">
+  <svg viewBox="0 0 1080 1920" id="svg">
+    <defs>
+      <radialGradient id="dotGlow"><stop offset="0" stop-color="#f4f6ff" stop-opacity="1"/><stop offset=".35" stop-color="#dfe7ff" stop-opacity=".55"/><stop offset="1" stop-color="#dfe7ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="coreGlow"><stop offset="0" stop-color="#dfe7ff" stop-opacity=".16"/><stop offset="1" stop-color="#dfe7ff" stop-opacity="0"/></radialGradient>
+    </defs>
+    <g id="arcs"></g>
+    <circle id="core" cx="533.4" cy="959.8" r="372" fill="url(#coreGlow)" opacity="0"/>
+    <circle id="head" r="7" fill="#f4f6ff" opacity="0"/>
+    <g id="play" opacity=".75"><path id="icon" fill="rgba(236,235,230,.85)"/></g>
+  </svg>
+  <div class="hint" id="hint">TAP THE MOON · DRAG THE HALO</div>
+</div></div>
+
+<script>
+/* geometry measured on the artwork (1080x1920): the inner disc and the ribbed halo around it */
+const CX=533.4, CY=959.8, DISC=374.7, RING=448;          // the touch arcs run along the middle of the halo
+const ARCS=[ // the Stem Player's four strips, bent round the halo; angles in degrees, 0 = up, clockwise
+  {id:"slow",   label:"SLOW",   mid:0,   v:0},
+  {id:"reverb", label:"REVERB", mid:90,  v:0},
+  {id:"chop",   label:"CHOP",   mid:180, v:0},
+  {id:"depth",  label:"DEPTH",  mid:270, v:0},
+];
+const SPAN=64, DOTS=9;                                     // each arc covers 64 degrees, nine lights
+const svg=document.getElementById("svg"), G=document.getElementById("arcs"), NS="http://www.w3.org/2000/svg";
+const pt=(deg,r)=>{const a=(deg-90)*Math.PI/180;return [CX+r*Math.cos(a),CY+r*Math.sin(a)]};
+
+// draw: a faint track, nine dots, a label just outside the halo
+ARCS.forEach(A=>{
+  const g=document.createElementNS(NS,"g");A.g=g;G.appendChild(g);
+  const a0=A.mid-SPAN/2,a1=A.mid+SPAN/2,[x0,y0]=pt(a0,RING),[x1,y1]=pt(a1,RING);
+  const tr=document.createElementNS(NS,"path");tr.setAttribute("d",`M${x0} ${y0} A${RING} ${RING} 0 0 1 ${x1} ${y1}`);
+  tr.setAttribute("stroke","rgba(236,235,230,.10)");tr.setAttribute("stroke-width","2");tr.setAttribute("fill","none");g.appendChild(tr);
+  A.dots=[...Array(DOTS)].map((_,i)=>{const d=a0+SPAN*i/(DOTS-1),[x,y]=pt(d,RING);
+    const glow=document.createElementNS(NS,"circle");glow.setAttribute("cx",x);glow.setAttribute("cy",y);glow.setAttribute("r","26");glow.setAttribute("fill","url(#dotGlow)");glow.setAttribute("opacity","0");g.appendChild(glow);
+    const dot=document.createElementNS(NS,"circle");dot.setAttribute("cx",x);dot.setAttribute("cy",y);dot.setAttribute("r","4.5");dot.setAttribute("fill","rgba(236,235,230,.22)");g.appendChild(dot);
+    return {glow,dot}});
+  const [lx,ly]=pt(A.mid,RING+44), rot=A.mid===90?90:A.mid===270?-90:0;
+  const t=document.createElementNS(NS,"text");t.setAttribute("x",lx);t.setAttribute("y",ly);t.setAttribute("class","lbl");
+  t.setAttribute("transform",`rotate(${rot} ${lx} ${ly})`);t.textContent=A.label;g.appendChild(t);A.text=t;
+});
+function paint(){ARCS.forEach(A=>{const lit=A.v*DOTS;
+  A.dots.forEach((d,i)=>{const k=Math.max(0,Math.min(1,lit-i));d.dot.setAttribute("fill",k>0?`rgba(244,246,255,${.35+.65*k})`:"rgba(236,235,230,.22)");d.glow.setAttribute("opacity",(.9*k).toFixed(2))});
+  A.text.classList.toggle("on",A.v>0.02)})}
+paint();
+
+/* ---------- audio: a looped snippet through tape speed, a chop, a low-pass and a long hall ---------- */
+let ctx,buf,src=null,playing=false,pos=0,startAt=0,rate=1,targetRate=1;
+let dry,wet,lp,conv,out;
+async function initAudio(){
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const data=await (await fetch("ya-leil.mp3")).arrayBuffer();buf=await ctx.decodeAudioData(data);
+  out=ctx.createGain();out.connect(ctx.destination);
+  lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=20000;lp.Q.value=.7;
+  dry=ctx.createGain();wet=ctx.createGain();wet.gain.value=0;conv=ctx.createConvolver();conv.buffer=hall(4.2);
+  lp.connect(dry);dry.connect(out);lp.connect(conv);conv.connect(wet);wet.connect(out);
+}
+function hall(sec){const n=ctx.sampleRate*sec,b=ctx.createBuffer(2,n,ctx.sampleRate);   // a dark, long tail
+  for(let c=0;c<2;c++){const d=b.getChannelData(c);let lpS=0;for(let i=0;i<n;i++){const t=i/n;lpS=lpS*.82+(Math.random()*2-1)*.18;d[i]=lpS*Math.pow(1-t,2.6)*(i<ctx.sampleRate*.02?i/(ctx.sampleRate*.02):1)}}return b}
+function now(){return playing?(pos+(ctx.currentTime-startAt)*rate)%buf.duration:pos}
+function startAtPos(p){if(src){src.onended=null;try{src.stop()}catch(e){}}
+  src=ctx.createBufferSource();src.buffer=buf;src.loop=true;src.playbackRate.value=rate;src.connect(lp);src.start(0,p%buf.duration);
+  pos=p%buf.duration;startAt=ctx.currentTime}
+function setRate(r,glide=.25){pos=now();startAt=ctx.currentTime;rate=r;if(src)src.playbackRate.setTargetAtTime(r,ctx.currentTime,glide/3)}
+async function toggle(){
+  if(!ctx)await initAudio();if(ctx.state==="suspended")await ctx.resume();
+  document.getElementById("hint").style.opacity=0;
+  if(!playing){playing=true;rate=.05;startAtPos(pos);setRate(targetRate,.9)}             // spins up like a deck
+  else{setRate(.04,.7);setTimeout(()=>{pos=now();if(src){try{src.stop()}catch(e){}src=null}playing=false;rate=targetRate},700)}   // tape stop
+}
+function apply(){const s=ARCS[0].v,r=ARCS[1].v,d=ARCS[3].v;
+  targetRate=1-.38*s;                                                    // down to 0.62x: pitch drops with it, as screw tapes do
+  if(ctx){if(playing)setRate(targetRate);
+    wet.gain.setTargetAtTime(r*1.1,ctx.currentTime,.08);dry.gain.setTargetAtTime(1-r*.35,ctx.currentTime,.08);
+    lp.frequency.setTargetAtTime(20000*Math.pow(380/20000,d),ctx.currentTime,.06)}}
+// CHOP: on each half-beat, with a chance set by the strip, jump back and repeat the half-beat just played
+const HALF=60/92/2;                                                      // half a beat at about 92 bpm
+setInterval(()=>{const c=ARCS[2].v;if(!playing||c<.02)return;if(Math.random()<c*.8){const p=now();startAtPos(Math.max(0,p-HALF*(Math.random()<.5?1:2)))}},HALF*1000);
+
+/* ---------- touch: the disc toggles play, an arc of the halo sets its strip ---------- */
+const dev=document.getElementById("dev");let drag=null;
+function toSvg(e){const r=svg.getBoundingClientRect();return [(e.clientX-r.left)/r.width*1080,(e.clientY-r.top)/r.height*1920]}
+function hit(x,y){const dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy);let ang=(Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
+  if(d<DISC-10)return {disc:true};if(d<DISC||d>RING+150)return null;
+  for(const A of ARCS){let rel=((ang-A.mid+540)%360)-180;if(Math.abs(rel)<=SPAN/2+10)return {A}}return null}
+function setFrom(A,x,y){let ang=(Math.atan2(y-CY,x-CX)*180/Math.PI+90+360)%360,rel=((ang-A.mid+540)%360)-180;
+  A.v=Math.max(0,Math.min(1,(rel+SPAN/2)/SPAN));paint();apply()}
+dev.addEventListener("pointerdown",e=>{const [x,y]=toSvg(e),h=hit(x,y);if(!h)return;dev.setPointerCapture(e.pointerId);
+  if(h.disc){toggle();return}drag=h.A;setFrom(drag,x,y)});
+dev.addEventListener("pointermove",e=>{if(!drag)return;const [x,y]=toSvg(e);setFrom(drag,x,y)});
+addEventListener("pointerup",()=>drag=null);
+
+/* ---------- the play icon, the glow that breathes with the music's speed, the playhead round the disc ---------- */
+const icon=document.getElementById("icon"),head=document.getElementById("head"),core=document.getElementById("core");
+function frame(){
+  icon.setAttribute("d",playing?`M${CX-22} ${CY-30}h14v60h-14zM${CX+8} ${CY-30}h14v60h-14z`:`M${CX-16} ${CY-32}L${CX+30} ${CY}L${CX-16} ${CY+32}z`);
+  document.getElementById("play").setAttribute("opacity",playing?.22:.75);
+  if(buf){const p=now()/buf.duration,[x,y]=pt(p*360,DISC+8);head.setAttribute("cx",x);head.setAttribute("cy",y);head.setAttribute("opacity",playing?.9:.35)}
+  const t=performance.now()/1000;core.setAttribute("opacity",playing?(.55+.45*Math.sin(t*2.2*rate)).toFixed(2):0);
+  requestAnimationFrame(frame)}
+frame();
+</script>
+</body></html>
