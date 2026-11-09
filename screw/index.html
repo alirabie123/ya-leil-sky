@@ -24,7 +24,7 @@
     <circle id="core" cx="544.3" cy="958.9" r="300" fill="url(#coreGlow)" opacity="0"/>
     <circle id="head" r="6" fill="#f4f6ff" opacity="0"/>
     <g id="key"></g>
-    <g id="play"><circle id="pbtn" cx="544.27" cy="1590" r="44" fill="rgba(236,235,230,.42)" stroke="none"/><path id="icon" fill="#20201f"/></g>
+    <g id="play"><circle id="pbtn" cx="544.27" cy="1700" r="44" fill="rgba(236,235,230,.42)" stroke="none"/><path id="icon" fill="#20201f"/></g>
   </svg>
 </div></div>
 
@@ -95,7 +95,7 @@ setInterval(()=>{const c=ARCS[2].v;if(!playing||c<.02)return;if(Math.random()<c*
 const dev=document.getElementById("dev");let drag=null;
 function toSvg(e){const r=svg.getBoundingClientRect();return [(e.clientX-r.left)/r.width*1080,(e.clientY-r.top)/r.height*1920]}
 function hit(x,y){const dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy);let ang=(Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
-  if(Math.hypot(x-CX,y-1590)<70)return {disc:true};
+  if(Math.hypot(x-CX,y-1700)<70)return {disc:true};
   if(d<DISC)return {disc:true};if(d<RING-55||d>EDGE+40)return null;
   for(const A of ARCS){let rel=((ang-A.mid+540)%360)-180;if(Math.abs(rel)<=SPAN/2+10)return {A}}return null}
 function setFrom(A,x,y){let ang=(Math.atan2(y-CY,x-CX)*180/Math.PI+90+360)%360,rel=((ang-A.mid+540)%360)-180;
@@ -122,7 +122,7 @@ addEventListener("pointerup",()=>drag=null);
 /* ---------- the play icon, the glow that breathes with the music's speed, the playhead round the disc ---------- */
 const icon=document.getElementById("icon"),head=document.getElementById("head"),core=document.getElementById("core");
 function frame(){
-  const IY=1590;icon.setAttribute("d",playing?`M${CX-12} ${IY-15}h7v30h-7zM${CX+5} ${IY-15}h7v30h-7z`:`M${CX-9} ${IY-16}L${CX+16} ${IY}L${CX-9} ${IY+16}z`);
+  const IY=1700;icon.setAttribute("d",playing?`M${CX-12} ${IY-15}h7v30h-7zM${CX+5} ${IY-15}h7v30h-7z`:`M${CX-9} ${IY-16}L${CX+16} ${IY}L${CX-9} ${IY+16}z`);
   document.getElementById("play").setAttribute("opacity",1);
   {const dt=Math.min(.05,(performance.now()-(window.__lt||performance.now()))/1000);window.__lt=performance.now();
    window.__ang=((window.__ang??-90)+(playing?rate:0)*dt*40)%360;document.getElementById('disc').setAttribute('transform',`rotate(${window.__ang} ${CX} ${CY})`);
