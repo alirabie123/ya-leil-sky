@@ -24,7 +24,7 @@
     <circle id="core" cx="544.3" cy="958.9" r="300" fill="url(#coreGlow)" opacity="0"/>
     <circle id="head" r="6" fill="#f4f6ff" opacity="0"/>
     <g id="key"></g>
-    <g id="play"><circle id="pbtn" cx="544.27" cy="1590" r="44" fill="#20201f" stroke="rgba(236,235,230,.14)" stroke-width="1.2"/><path id="icon" fill="rgba(236,235,230,.85)"/></g>
+    <g id="play"><circle id="pbtn" cx="544.27" cy="1590" r="44" fill="rgba(236,235,230,.42)" stroke="none"/><path id="icon" fill="#20201f"/></g>
   </svg>
   <div class="hint" id="hint">DRAG THE RIM</div>
 </div></div>
@@ -124,7 +124,7 @@ addEventListener("pointerup",()=>drag=null);
 const icon=document.getElementById("icon"),head=document.getElementById("head"),core=document.getElementById("core");
 function frame(){
   const IY=1590;icon.setAttribute("d",playing?`M${CX-12} ${IY-15}h7v30h-7zM${CX+5} ${IY-15}h7v30h-7z`:`M${CX-9} ${IY-16}L${CX+16} ${IY}L${CX-9} ${IY+16}z`);
-  document.getElementById("play").setAttribute("opacity",playing?.6:.9);
+  document.getElementById("play").setAttribute("opacity",1);
   {const dt=Math.min(.05,(performance.now()-(window.__lt||performance.now()))/1000);window.__lt=performance.now();
    window.__ang=((window.__ang??-90)+(playing?rate:0)*dt*40)%360;document.getElementById('disc').setAttribute('transform',`rotate(${window.__ang} ${CX} ${CY})`);
   }
