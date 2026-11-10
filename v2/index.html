@@ -636,7 +636,7 @@ async function startOrientation(){
   try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==="function"){const r=await DeviceOrientationEvent.requestPermission();if(r!=="granted")return}}catch(e){return}
   addEventListener("ondeviceorientationabsolute" in window?"deviceorientationabsolute":"deviceorientation",onOrient);
 }
-let yaw=anchorAz,pitch=anchorAlt+4*RAD,vy=0,vp=0,drag=null;
+const startPitch=(()=>{let p=25*RAD;if(Math.abs(anchorAlt-p)<24*RAD)p=anchorAlt>p?anchorAlt-32*RAD:anchorAlt+32*RAD;return Math.max(8*RAD,Math.min(80*RAD,p))})();let yaw=anchorAz+120*RAD,pitch=startPitch,vy=0,vp=0,drag=null;
 function starAt(x,y){let best=null,bd=46;const p=new THREE.Vector3();stars.forEach(s=>{p.copy(s.position).project(camera);if(p.z>1)return;
   const d=Math.hypot((p.x+1)/2*innerWidth-x,(1-p.y)/2*innerHeight-y);if(d<bd){bd=d;best=s}});return best}
 function titleTapped(x,y){if(!titleLabel)return false;const p=titleLabel.position.clone().project(camera);return p.z<1&&Math.hypot((p.x+1)/2*innerWidth-x,(1-p.y)/2*innerHeight-y)<90}
@@ -747,7 +747,7 @@ function frame(){
 }
 
 /* ---------- start ---------- */
-$("go").onclick=async()=>{
+$("go").onclick=async()=>{yaw=anchorAz;pitch=anchorAlt+4*RAD;vy=vp=0;
   audioInit();ambientStart();await startOrientation();
   navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{geo={lat:p.coords.latitude,lng:p.coords.longitude};lastSky=0},()=>{},{timeout:8000,maximumAge:6e5});
   try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}
