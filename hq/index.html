@@ -305,7 +305,7 @@ const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.Shad
     }`}));
 scene.add(moon);
 const glowTex=a=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d"),gr=g.createRadialGradient(128,128,0,128,128,128);
-  gr.addColorStop(0,`rgba(235,235,255,${a})`);gr.addColorStop(.3,`rgba(235,235,255,${a*.3})`);gr.addColorStop(1,"rgba(235,235,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)};
+  gr.addColorStop(0,`rgba(235,235,255,${a})`);gr.addColorStop(.3,`rgba(235,235,255,${a*.3})`);gr.addColorStop(1,"rgba(235,235,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);{const id=g.getImageData(0,0,256,256),D=id.data;for(let i=3;i<D.length;i+=4)D[i]=Math.max(0,Math.min(255,D[i]+(Math.random()+Math.random()-1)*1.5));g.putImageData(id,0,0)}return new THREE.CanvasTexture(c)};
 const moonGlow=[[1.45,.09],[3.2,.018]].map(([s,a])=>{const h=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(a),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));h.scale.setScalar(MOON_R*s*2);scene.add(h);return h});
 /* the halo: the real moon becomes the cover's centre circle, wrapped in the cover's flat band and ribbed ring */
 const coverTex=new THREE.TextureLoader().load("cover-lo.jpg");coverTex.colorSpace=THREE.SRGBColorSpace;coverTex.anisotropy=8;
@@ -320,8 +320,8 @@ const ringMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blendi
       gl_FragColor=vec4(vec3(.82,.85,.8)*(ring*(.03+rib*.55))*uA,1.);
       #include <colorspace_fragment>
     }`});
-const haloRing=new THREE.Mesh(new THREE.CircleGeometry(MOON_R*1.005/.715,256),ringMat);scene.add(haloRing);haloRing.renderOrder=38;ringMat.depthTest=false;moonGlow.forEach(h=>{h.renderOrder=39;h.material.depthTest=false});moon.renderOrder=40;moon.material.depthTest=false;
-function placeMoon(){moon.position.copy(SKY.show).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
+const haloRing=new THREE.Mesh(new THREE.CircleGeometry(MOON_R*1.005/.715,256),ringMat);scene.add(haloRing);haloRing.renderOrder=38;ringMat.depthTest=false;moonGlow.forEach(h=>{h.renderOrder=39;h.material.depthTest=false});moon.renderOrder=40;moon.material.depthTest=false;moon.material.transparent=true;
+function placeMoon(){moon.position.copy(SKY.show).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(-Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
   haloRing.position.copy(moon.position).multiplyScalar(1.001);haloRing.lookAt(0,0,0)}
 placeMoon();
 
