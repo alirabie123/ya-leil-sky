@@ -34,7 +34,7 @@ html,body{margin:0;height:100%;background:var(--void);color:var(--paper);overflo
 #rec.call{animation:call 1.4s ease-in-out infinite}
 @keyframes call{50%{box-shadow:0 0 0 8px rgba(239,234,224,.16)}}
 #rec svg{position:absolute;width:52px;height:52px;transform:rotate(-90deg);pointer-events:none}
-#rec{position:relative;transition:opacity .9s ease,transform .9s ease}body:not(.won) #rec{opacity:0;pointer-events:none;transform:scale(.85)}
+#face{transition:opacity .5s ease,transform .5s ease}body:not(.recording) #face{opacity:0;pointer-events:none;transform:scale(.85)}#rec{position:relative;transition:opacity .9s ease,transform .9s ease}body:not(.won) #rec{opacity:0;pointer-events:none;transform:scale(.85)}
 .compass{direction:ltr;position:relative;flex:1 1 auto;max-width:220px;height:52px;border:1px solid var(--line);border-radius:999px;background:rgba(10,11,10,.55);overflow:hidden;pointer-events:none;
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .compass .strip{position:absolute;top:0;bottom:0;left:50%;display:flex;align-items:center;white-space:nowrap;will-change:transform}
@@ -587,12 +587,12 @@ function startRec(){
   const type=["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm"].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||"";
   try{rec=new MediaRecorder(new MediaStream(tracks),type?{mimeType:type,videoBitsPerSecond:8e6}:undefined)}catch(e){return}
   chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
-  rec.onstop=()=>{stopSnippet();amb.duck=1;clipBlob=new Blob(chunks,{type:rec.mimeType||type||"video/mp4"});const v=$("clip");v.src=URL.createObjectURL(clipBlob);$("sheet").hidden=false;v.play().catch(()=>{})};
+  rec.onstop=()=>{document.body.classList.remove("recording");stopSnippet();amb.duck=1;clipBlob=new Blob(chunks,{type:rec.mimeType||type||"video/mp4"});const v=$("clip");v.src=URL.createObjectURL(clipBlob);$("sheet").hidden=false;v.play().catch(()=>{})};
   amb.duck=0;if(amb.g){const t=audio.ctx.currentTime;amb.g.gain.cancelScheduledValues(t);amb.g.gain.setTargetAtTime(0,t,.04)}   // the drone and notes step out of the clip entirely, at once
-  rec.start(250);recT0=performance.now();$("rec").classList.add("on");$("rec").classList.remove("call");
+  rec.start(250);recT0=performance.now();$("rec").classList.add("on");document.body.classList.add("recording");$("rec").classList.remove("call");
   if(solved)playSnippet();   // the snippet starts with the recording, so every clip opens on the hook
 }
-function stopRec(){if(rec&&rec.state!=="inactive")rec.stop();$("rec").classList.remove("on")}
+function stopRec(){if(rec&&rec.state!=="inactive")rec.stop();$("rec").classList.remove("on");document.body.classList.remove("recording")}
 $("rec").onclick=async()=>{unmuteIOS();audio.keep&&audio.keep.play().catch(()=>{});audio.ctx&&audio.ctx.resume();
   if(rec&&rec.state==="recording")return stopRec();
   if(!camMode&&!camBusy){camBusy=true;try{await setCam("user")}finally{camBusy=false}}   // first recording: ask for the camera now and start on your face; a refusal still records the sky
