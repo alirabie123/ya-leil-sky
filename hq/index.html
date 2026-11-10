@@ -97,7 +97,7 @@ body.pre .sub,body.pre .credit,body.pre #arrow{opacity:0}
 <div id="grain" aria-hidden="true"></div><canvas id="c" aria-label="A live sky with the moon and the letters of Ya Leil as a constellation"></canvas>
 <div class="sub" id="sub" aria-live="polite"><span class="ar" id="subAr"></span><span class="en" id="subEn"></span></div>
 <svg id="arrow" viewBox="-26 -26 52 52" hidden aria-hidden="true"><path d="M0,-18 L13,9 L0,3 L-13,9Z" fill="currentColor"/></svg>
-<span class="credit">Milky Way: ESO/S. Brunier</span>
+<span class="credit">Milky Way: ESO/S. Brunier · Stars: ESA/Gaia/DPAC</span>
 <div class="row" id="row" hidden>
   <button class="round" id="face" type="button" aria-label="Flip the camera"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2"/><path d="M19.5 12a7.5 7.5 0 0 1-12.9 5.2"/><path d="M17.9 3.4v3.9H14"/><path d="M6.1 20.6v-3.9H10"/></svg></button>
   <div class="compass" aria-hidden="true"><div class="strip" id="strip"></div><div class="needle"></div></div>
@@ -187,10 +187,7 @@ const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
       vec3 mw=texture2D(uMW,vec2(.5-gl/6.2831853,.5+gb/3.14159265)).rgb;mw=mix(vec3(dot(mw,vec3(.3,.59,.11))),mw,.12)*vec3(.97,1.,.95);mw=pow(mw,vec3(1.3))*1.5;   // monochrome, like the print
       {vec2 tx=vec2(.5-gl/6.2831853,.5+gb/3.14159265);vec3 bl=(texture2D(uMW,tx+vec2(.0009,0.)).rgb+texture2D(uMW,tx-vec2(.0009,0.)).rgb+texture2D(uMW,tx+vec2(0.,.0018)).rgb+texture2D(uMW,tx-vec2(0.,.0018)).rgb)*.25;
        float lm=dot(mw,vec3(.33)),lb=dot(pow(bl,vec3(1.3))*1.5,vec3(.33));mw*=clamp(1.+.45*(lm-lb)/max(lb,.004),.75,1.4);        // unsharp mask: crisper dust lanes
-       float dust=0.;for(int k=0;k<3;k++){float K=float(1600+k*1500);vec3 q=d*K;vec3 cid=floor(q);vec3 f=fract(q);
-         vec3 r3=fract(sin(vec3(dot(cid,vec3(127.1,311.7,74.7)),dot(cid,vec3(269.5,183.3,246.1)),dot(cid,vec3(113.5,271.9,124.6))))*43758.5453);
-         float dd=length(f-r3);dust+=smoothstep(.07,.0,dd)*pow(r3.x,9.)*(1.2-float(k)*.3);}
-       mw+=vec3(.95,.96,.93)*dust*smoothstep(.12,.45,lm)*.35;}                                                   // its own stars, densest where it is brightest
+}
       float wash=1.-.85*dusk*(band*pow(toward,1.2)+.25);
       c+=mw*1.25*wash*max(night,.7)*smoothstep(-.015,.01,h);   // the Milky Way stays, day or night
       float m=max(dot(d,uMoon),0.);c+=(vec3(.016,.017,.019)*pow(m,400.)*(1.-day*.7)+vec3(.0035,.004,.0048)*pow(m,14.))*uMK;
@@ -254,6 +251,22 @@ let bscStars,bscDirs=[],bscMag=[];
 let streakObj=null;
 const alignPhoto=alignGalaxy;alignGalaxy=function(){alignPhoto();bscStars.matrix.copy(realStars.matrix);bscStars.matrixWorldNeedsUpdate=true;if(streakObj){streakObj.matrix.copy(realStars.matrix);streakObj.matrixWorldNeedsUpdate=true}};   // the catalogue rides the same galactic frame
 alignGalaxy();
+/* the Milky Way resolved: 475,000 real stars from ESA's Gaia DR3 (magnitude 6 to 10), sharp at any zoom, on the same galactic frame */
+const gaiaMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{px:{value:renderer.getPixelRatio()},uSun:{value:SKY.sun},uEnv:{value:1},uK:{value:1},uIn:{value:0}},
+  vertexShader:`attribute float mag;attribute vec3 col;uniform float px,uK,uIn;uniform vec3 uSun;varying float vA;varying vec3 vC;
+    void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;vec3 d=normalize((modelMatrix*vec4(position,1.)).xyz);
+      float night=clamp((-uSun.y-.02)/.26,0.,1.),air=1.-clamp(d.y*2.2,0.,1.),f=pow(10.,-.4*(mag-6.));
+      vA=clamp(.06+.5*sqrt(f),0.,.62)*max(night,.8)*(1.-.6*air)*smoothstep(-.005,.03,d.y)*uIn;
+      vC=col;gl_PointSize=clamp(1.15+.85*sqrt(f),1.,2.2)*px/max(uK,.35);}`,
+  fragmentShader:`uniform float uEnv;varying float vA;varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);float a=exp(-d*d*16.)*uEnv*vA;if(a<.003)discard;gl_FragColor=vec4(vC*a,a);}`});
+let gaiaStars=null;
+fetch("gaia-stars.bin").then(r=>r.arrayBuffer()).then(buf=>{const dv=new DataView(buf),u8=new Uint8Array(buf),N=buf.byteLength/6,pos=new Float32Array(N*3),mag=new Float32Array(N),col=new Float32Array(N*3);
+  for(let i=0;i<N;i++){const l=dv.getUint16(i*2,true)/65535*6.2831853,b=(dv.getUint16(N*2+i*2,true)/65535-.5)*Math.PI,cb=Math.cos(b);
+    pos[i*3]=cb*Math.cos(l)*29000;pos[i*3+1]=cb*Math.sin(l)*29000;pos[i*3+2]=Math.sin(b)*29000;mag[i]=6+u8[N*4+i]/255*4;col.set(kRGB(2500+u8[N*5+i]/255*27500),i*3)}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("mag",new THREE.BufferAttribute(mag,1));g.setAttribute("col",new THREE.BufferAttribute(col,3));
+  gaiaStars=new THREE.Points(g,gaiaMat);gaiaStars.matrixAutoUpdate=false;gaiaStars.frustumCulled=false;gaiaStars.matrix.copy(realStars.matrix);scene.add(gaiaStars);
+  const t0=performance.now();(function fade(){const k=Math.min(1,(performance.now()-t0)/1500);gaiaMat.uniforms.uIn.value=k;if(k<1)requestAnimationFrame(fade)})()}).catch(()=>{});   // fades in once loaded
+const alignBsc=alignGalaxy;alignGalaxy=function(){alignBsc();if(gaiaStars){gaiaStars.matrix.copy(realStars.matrix);gaiaStars.matrixWorldNeedsUpdate=true}};
 /* zoom streaks: while you zoom, stars stretch into lines that rush out of (or into) the centre of the view */
 const streakMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,uniforms:{uW:{value:0}},
   vertexShader:`attribute float e,b;uniform float uW;varying float vA;
@@ -749,7 +762,7 @@ const fwd=new THREE.Vector3();
 function frame(){
   const t=clock.getElapsedTime(),now=performance.now();
   if(now-lastSky>5000){lastSky=now;SKY=withShow(skyAt(TQ_?TQ:Date.now()));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
-    starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;hills.forEach(h=>{const u=h.m.material.uniforms;u.uSun.value=SKY.sun;u.uMoon.value=SKY.moon});groundMat.uniforms.uSun.value=SKY.sun;groundMat.uniforms.uMoon.value=SKY.moon;placeMoon();alignGalaxy();
+    starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=gaiaMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;hills.forEach(h=>{const u=h.m.material.uniforms;u.uSun.value=SKY.sun;u.uMoon.value=SKY.moon});groundMat.uniforms.uSun.value=SKY.sun;groundMat.uniforms.uMoon.value=SKY.moon;placeMoon();alignGalaxy();
     if(!seq.length&&!solved){chooseAnchor();stars.forEach((s,i)=>s.position.copy(starDir(i)).multiplyScalar(18000))}   // follow the moon until the game starts
     const dayish=SKY.sun.y>-.1;if(dayish&&!pathInfo)buildPath();if(!dayish&&pathObj){scene.remove(pathObj,pathMark);pathObj=pathMark=null;pathInfo=null}
     const lift=1+1.5*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));hills.forEach(h=>h.m.material.color.setScalar(lift));groundMat.uniforms.uLift.value=lift}
@@ -763,7 +776,7 @@ function frame(){
   else{if(!drag){yaw+=vy;pitch+=vp;vy*=.92;vp*=.92;if(document.body.classList.contains("pre")&&!reduced)yaw+=.00035}   /* the start screen: a slow drift across the sky */pitch=Math.max(-88*RAD,Math.min(88*RAD,pitch));camera.lookAt(dirAA(pitch,yaw))}
   camera.updateMatrixWorld();camera.getWorldDirection(fwd);ambientUpdate();
   const hd=((azOf(fwd)/RAD)%360+360)%360;$("strip").style.transform=`translateX(${-(360+hd)*3-7.5}px)`;
-  starsMat.uniforms.t.value=t;bscMat.uniforms.t.value=t;bscMat.uniforms.uK.value=ZOOM.k;if(!reduced)ringMat.uniforms.uRot.value=t*.01;ringMat.uniforms.uA.value=1-.2*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));
+  starsMat.uniforms.t.value=t;bscMat.uniforms.t.value=t;bscMat.uniforms.uK.value=ZOOM.k;gaiaMat.uniforms.uK.value=ZOOM.k;if(!reduced)ringMat.uniforms.uRot.value=t*.01;ringMat.uniforms.uA.value=1-.2*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));
   let head=null;
   segs.forEach(l=>{const p=Math.min(1,(now-l.userData.t0)/(reduced?1:700));l.material.uniforms.uP.value=p;l.material.uniforms.uT.value=t;
     l.material.uniforms.uA.value=solved?1.35:(shakeT&&now-shakeT<900?.4:1);if(p<1){const a=l.geometry.attributes.position,k=Math.round(p*48);head=new THREE.Vector3(a.getX(k),a.getY(k),a.getZ(k))}});
@@ -774,7 +787,7 @@ function frame(){
   dramaFrame(now,t);
   // face: fades in and fills most of the frame, a ghost in the sky
   faceK+=((faceOn?1:0)-faceK)*.06;facePlane.visible=faceK>.01;
-  skyMat.uniforms.uEnv.value=(1-.45*faceK)*(window.__dim||1);bscMat.uniforms.uEnv.value=starsMat.uniforms.uEnv.value=(1-.25*faceK)*(.35+.65*(window.__dim||1));   // the camera reads clearly: the sky steps back under it
+  skyMat.uniforms.uEnv.value=(1-.45*faceK)*(window.__dim||1);gaiaMat.uniforms.uEnv.value=bscMat.uniforms.uEnv.value=starsMat.uniforms.uEnv.value=(1-.25*faceK)*(.35+.65*(window.__dim||1));   // the camera reads clearly: the sky steps back under it
   const pre=document.body.classList.contains("pre"),recOn=!!(rec&&rec.state==="recording");
   hills.forEach(h=>h.m.visible=!recOn);ground.visible=!recOn;   // the clip is only sky, stars and the moon
   moonK+=((pre?0:1)-moonK)*.04;skyMat.uniforms.uMK.value=moonK;   // the opening screen is sky and stars; the moon and its letters arrive once you start
