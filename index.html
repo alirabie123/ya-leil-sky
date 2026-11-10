@@ -276,16 +276,16 @@ const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.Shad
       float hy=texture2D(hmap,vUv+vec2(0.,uTx.y)).r-texture2D(hmap,vUv-vec2(0.,uTx.y)).r;
       vec3 nb=normalize(n-uBump*(hx*east+hy*north));
       float ci=max(dot(nb,L),0.),ce=max(dot(n,V),.02),ls=ci/(ci+ce);
-      ls*=smoothstep(-.03,.06,dot(n,L));                                         // the terminator, softened by a few degrees
+      ls*=smoothstep(-.004,.014,dot(n,L));                                         // the terminator, softened by a few degrees
       vec3 alb=texture2D(map,vUv).rgb;
-      float es=.028*pow(clamp(.5-.5*dot(L,V),0.,1.),1.5)*ce;                       // earthshine: strongest at a thin crescent
+      float es=.024*pow(clamp(.5-.5*dot(L,V),0.,1.),1.5)*(.55+.45*ce);                       // earthshine: strongest at a thin crescent
       float night=1.-smoothstep(-.05,.1,dot(n,L));
       gl_FragColor=vec4(alb*(ls*2.6+es*night*3.+.01)*uBoost,1.);
       #include <colorspace_fragment>
     }`}));
 scene.add(moon);
 const glowTex=a=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d"),gr=g.createRadialGradient(128,128,0,128,128,128);
-  gr.addColorStop(0,`rgba(235,235,255,${a})`);gr.addColorStop(.3,`rgba(235,235,255,${a*.3})`);gr.addColorStop(1,"rgba(235,235,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)};
+  gr.addColorStop(0,`rgba(235,235,255,${a})`);gr.addColorStop(.3,`rgba(235,235,255,${a*.3})`);gr.addColorStop(1,"rgba(235,235,255,0)");g.fillStyle=gr;g.fillRect(0,0,256,256);{const id=g.getImageData(0,0,256,256),D=id.data;for(let i=3;i<D.length;i+=4)D[i]=Math.max(0,Math.min(255,D[i]+(Math.random()+Math.random()-1)*1.5));g.putImageData(id,0,0)}return new THREE.CanvasTexture(c)};
 const moonGlow=[[1.45,.09],[3.2,.018]].map(([s,a])=>{const h=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(a),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));h.scale.setScalar(MOON_R*s*2);scene.add(h);return h});
 /* the halo: the real moon becomes the cover's centre circle, wrapped in the cover's flat band and ribbed ring */
 const coverTex=new THREE.TextureLoader().load("cover-lo.jpg");coverTex.colorSpace=THREE.SRGBColorSpace;coverTex.anisotropy=8;
@@ -300,8 +300,9 @@ const ringMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blendi
       gl_FragColor=vec4(vec3(.82,.85,.8)*(ring*(.03+rib*.55))*uA,1.);
       #include <colorspace_fragment>
     }`});
-const haloRing=new THREE.Mesh(new THREE.CircleGeometry(MOON_R*1.005/.715,256),ringMat);scene.add(haloRing);haloRing.renderOrder=38;ringMat.depthTest=false;moonGlow.forEach(h=>{h.renderOrder=39;h.material.depthTest=false});moon.renderOrder=40;moon.material.depthTest=false;
-function placeMoon(){moon.position.copy(SKY.show).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
+const haloRing=new THREE.Mesh(new THREE.CircleGeometry(MOON_R*1.005/.715,256),ringMat);scene.add(haloRing);haloRing.renderOrder=38;ringMat.depthTest=false;moonGlow.forEach(h=>{h.renderOrder=39;h.material.depthTest=false});moon.renderOrder=40;moon.material.depthTest=false;moon.material.transparent=true;
+let MOON_ILL=.5;
+function placeMoon(){moon.position.copy(SKY.show).multiplyScalar(MOON_D);moon.lookAt(0,0,0);moon.rotateY(-Math.PI/2);moonGlow.forEach(h=>h.position.copy(moon.position).multiplyScalar(.995));
   haloRing.position.copy(moon.position).multiplyScalar(1.001);haloRing.lookAt(0,0,0)}
 placeMoon();
 
@@ -700,7 +701,7 @@ const fwd=new THREE.Vector3();
 function frame(){
   const t=clock.getElapsedTime(),now=performance.now();
   if(now-lastSky>5000){lastSky=now;SKY=withShow(skyAt(TQ_?TQ:Date.now()));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
-    starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;placeMoon();alignGalaxy();
+    starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;MOON_ILL=.5-.5*SKY.sun.clone().normalize().dot(SKY.moon.clone().normalize());placeMoon();alignGalaxy();
     if(!seq.length&&!solved){chooseAnchor();stars.forEach((s,i)=>s.position.copy(starDir(i)).multiplyScalar(18000))}   // follow the moon until the game starts
     const dayish=SKY.sun.y>-.1;if(dayish&&!pathInfo)buildPath();if(!dayish&&pathObj){scene.remove(pathObj,pathMark);pathObj=pathMark=null;pathInfo=null}
     const lift=1+1.5*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));hills.forEach(h=>h.m.material.color.setScalar(lift))}
@@ -729,7 +730,7 @@ function frame(){
   const pre=document.body.classList.contains("pre"),recOn=!!(rec&&rec.state==="recording");
   hills.forEach(h=>h.m.visible=!recOn);   // the clip is only sky, stars and the moon
   moonK+=((pre?0:1)-moonK)*.04;skyMat.uniforms.uMK.value=moonK;   // the opening screen is sky and stars; the moon and its letters arrive once you start
-  moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK});ringMat.uniforms.uA.value*=moonK;
+  moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK*(.06+.94*Math.min(1,MOON_ILL*1.5))});ringMat.uniforms.uA.value*=moonK;
   stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});faintLines.forEach(l=>{l.visible=moonK>.01;l.material.opacity=l.userData.base*moonK});
   if(pathObj)pathObj.visible=pathMark.visible=!pre;
   cover.visible=moonK>.01&&!!sharpRoot;if(cover.visible)placeCover(t,now);
