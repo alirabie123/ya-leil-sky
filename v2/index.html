@@ -143,12 +143,16 @@ const DAYMS=864e5,J1970=2440588,J2000=2451545,OBL=RAD*23.4397;
 const raOf=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
 const decOf=(l,b)=>Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
 function skyAt(t){
-  const d=t/DAYMS-.5+J1970-J2000,LST=RAD*(280.16+360.9856235*d)+RAD*geo.lng,phi=geo.lat*RAD;
+  const d=t/DAYMS-.5+J1970-J2000,LST=RAD*(280.46061837+360.98564736629*d)+RAD*geo.lng,phi=geo.lat*RAD;
   const eq=(ra,dec)=>{const H=LST-ra,alt=Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
     const az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi))+Math.PI;return dirAA(alt,az)};
   const M=RAD*(357.5291+.98560028*d),C=RAD*(1.9148*Math.sin(M)+.02*Math.sin(2*M)+.0003*Math.sin(3*M)),ls=M+C+RAD*102.9372+Math.PI;
-  const Lm=RAD*(218.316+13.176396*d),Mm=RAD*(134.963+13.064993*d),Fm=RAD*(93.272+13.22935*d),lm=Lm+RAD*6.289*Math.sin(Mm),bm=RAD*5.128*Math.sin(Fm);
-  return {sun:eq(raOf(ls,0),decOf(ls,0)),moon:eq(raOf(lm,bm),decOf(lm,bm)),ngp:eq(192.85948*RAD,27.12825*RAD),gc:eq(266.40499*RAD,-28.93617*RAD)};
+  const sn=Math.sin,cs=Math.cos,Lp=RAD*(218.3165+13.17639648*d),Mp=RAD*(134.9634+13.06499295*d),Ms=RAD*(357.5291+.98560028*d),D=RAD*(297.8502+12.19074912*d),F=RAD*(93.2721+13.22935024*d);
+  const lm=Lp+RAD*(6.289*sn(Mp)+1.274*sn(2*D-Mp)+.658*sn(2*D)+.214*sn(2*Mp)-.186*sn(Ms)-.114*sn(2*F)+.059*sn(2*D-2*Mp)+.057*sn(2*D-Ms-Mp)+.053*sn(2*D+Mp)+.046*sn(2*D-Ms)-.041*sn(Ms-Mp)-.035*sn(D)-.030*sn(Ms+Mp));
+  const bm=RAD*(5.128*sn(F)+.281*sn(Mp+F)+.278*sn(Mp-F)+.173*sn(2*D-F)+.055*sn(2*D-Mp+F)+.046*sn(2*D-Mp-F)+.033*sn(2*D+F)+.017*sn(2*Mp+F));
+  const par=Math.asin(6378.14/(385001-20905*cs(Mp)-3699*cs(2*D-Mp)-2956*cs(2*D)-570*cs(2*Mp)));   // seen from the ground, not the earth's centre
+  const mg=eq(raOf(lm,bm),decOf(lm,bm)),ma=altOf(mg);
+  return {sun:eq(raOf(ls,0),decOf(ls,0)),moon:dirAA(ma-par*Math.cos(ma),azOf(mg)),ngp:eq(192.85948*RAD,27.12825*RAD),gc:eq(266.40499*RAD,-28.93617*RAD)};
 }
 const altOf=v=>Math.asin(Math.max(-1,Math.min(1,v.y))),azOf=v=>Math.atan2(v.x,-v.z);
 
@@ -159,7 +163,7 @@ renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.outputColorSpac
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(70,1,1,60000);scene.add(camera);
 /* the moon as shown: its real place, but when it is low or has set it waits just above the hills, right over the real one, with its letters (the subtitle gives the real rise time) */
-const LOW=17*RAD,withShow=s=>{s.show=altOf(s.moon)>=LOW?s.moon:dirAA(LOW,azOf(s.moon));return s};
+const LOW=17*RAD,withShow=s=>{s.show=altOf(s.moon)>=0?s.moon:dirAA(LOW,azOf(s.moon));return s};
 const TQ_=new URLSearchParams(location.search).get('t'),TQ=TQ_?Date.parse(TQ_):Date.now();
 let SKY=withShow(skyAt(TQ));
 
@@ -316,7 +320,7 @@ function textSprite(lines,{dist=19000,deg=3}={}){
 /* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
 const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[[-12,-6],[-15,7],[-4,12],[8,4],[14,13]];   // a loose, irregular constellation round the moon (degrees: across, up), in the order the letters are tapped
 let anchorAlt,anchorAz;
-function chooseAnchor(){anchorAlt=altOf(SKY.show);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
+function chooseAnchor(){anchorAlt=Math.max(altOf(SKY.show),LOW);anchorAz=azOf(SKY.show)}   // the letters always gather around the moon
 chooseAnchor();
 const starDir=i=>{const [da,dh]=OFFS[i%OFFS.length],al=anchorAlt+dh*RAD;return dirAA(al,anchorAz+da*RAD/Math.max(.4,Math.cos(al)))};
 const LSZ=7.8;   // letter sprite size (deg)
@@ -696,7 +700,7 @@ const clock=new THREE.Clock();let lastSky=0;
 const fwd=new THREE.Vector3();
 function frame(){
   const t=clock.getElapsedTime(),now=performance.now();
-  if(now-lastSky>30000){lastSky=now;SKY=withShow(skyAt(TQ));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
+  if(now-lastSky>5000){lastSky=now;SKY=withShow(skyAt(TQ_?TQ:Date.now()));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
     starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;placeMoon();alignGalaxy();
     if(!seq.length&&!solved){chooseAnchor();stars.forEach((s,i)=>s.position.copy(starDir(i)).multiplyScalar(18000))}   // follow the moon until the game starts
     const dayish=SKY.sun.y>-.1;if(dayish&&!pathInfo)buildPath();if(!dayish&&pathObj){scene.remove(pathObj,pathMark);pathObj=pathMark=null;pathInfo=null}
