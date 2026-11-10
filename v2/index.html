@@ -163,7 +163,7 @@ renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.outputColorSpac
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(70,1,1,60000);scene.add(camera);
 /* the moon as shown: its real place, but when it is low or has set it waits just above the hills, right over the real one, with its letters (the subtitle gives the real rise time) */
-const LOW=17*RAD,withShow=s=>{s.show=altOf(s.moon)>=0?s.moon:dirAA(LOW,azOf(s.moon));return s};
+const LOW=17*RAD,withShow=s=>{s.show=s.moon;return s};
 const TQ_=new URLSearchParams(location.search).get('t'),TQ=TQ_?Date.parse(TQ_):Date.now();
 let SKY=withShow(skyAt(TQ));
 
@@ -490,7 +490,7 @@ function hillLayer(radius,amp,base,seed,top,bottom,alpha){
 
 /* ---------- daytime: tonight's path of the moon, with its spot at 9 pm ---------- */
 let pathObj=null,pathMark=null,pathInfo=null;
-function buildPath(){
+function buildPath(){return;
   if(pathObj){scene.remove(pathObj);pathObj=null}if(pathMark){scene.remove(pathMark);pathMark=null}pathInfo=null;
   const n=Date.now(),n0=Math.ceil(n/6e5)*6e5,pts=[];let started=false;
   for(let m=0;m<=26*60;m+=10){const tt=n0+m*6e4,s=skyAt(tt);if(s.sun.y<-.1&&s.moon.y>.01){started=true;pts.push({t:tt,dir:s.moon})}else if(started)break}
@@ -673,7 +673,7 @@ function guide(){
   const c=new THREE.Vector3();stars.forEach(s=>c.add(s.position));if(!stars.length)return;c.normalize().multiplyScalar(18000);
   const inView=v=>{const q=v.clone().project(camera);return q.z<1&&Math.abs(q.x)<.9&&Math.abs(q.y)<.85};
   const ar=$("arrow"),on=inView(c)||inView(moon.position)||stars.some(st=>inView(st.position));   // on target when the moon or any of its stars is in view
-  const down=SKY.moon.y<0,r=down?moonRise():null;
+  const down=false,r=null;
   if(on||rec&&rec.state==="recording"){ar.setAttribute("hidden","");
     if(state==="find"&&down&&r)say(["المس النجوم بالترتيب عشان تعرف اسم الأغنية","Tap the stars in order to find out the song's name"]);
     else say(SUB[state]||SUB.find);return}
