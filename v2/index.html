@@ -86,7 +86,7 @@ body.pre .sub,body.pre .credit,body.pre #arrow{opacity:0}
 /* clip sheet */
 #sheet{position:fixed;inset:0;z-index:30;background:var(--void);isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
   padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
-#clip{max-height:68vh;max-width:100%;border-radius:14px;background:#000}
+#clip{max-height:68vh;max-width:100%;border-radius:14px;background:#000}#sheet .back{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:calc(14px + env(safe-area-inset-left,0px));display:flex;align-items:center;gap:8px;font:400 15px/1 var(--f-en);color:var(--paper);background:rgba(10,11,10,.35);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:999px;padding:10px 16px 10px 12px;cursor:pointer;z-index:2;direction:ltr}#sheet .back .ar{font-family:var(--f-ar,inherit);font-size:16px}
 .btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .ghost{font:400 16px/1 var(--f-en);color:var(--paper);background:transparent;border:1px solid var(--line);border-radius:999px;padding:12px 22px;cursor:pointer}
 .go.en{font:500 16px/1 var(--f-en);padding:12px 26px}
@@ -107,6 +107,7 @@ body.pre .sub,body.pre .credit,body.pre #arrow{opacity:0}
   <button class="orb" id="go" type="button" aria-label="ابدأ · Start"><span class="glow" aria-hidden="true"></span><span class="halo" aria-hidden="true"></span><span class="lbl"><b>ابدأ</b><i>START</i></span></button>
 </section>
 <section id="sheet" hidden>
+  <button class="back" id="back" type="button" aria-label="Back to the sky"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span><span class="ar">· رجوع</span></button>
   <video id="clip" playsinline loop autoplay></video>
   <div class="btns">
     <button class="go en" id="share" type="button">Share</button>
@@ -512,7 +513,7 @@ const faceMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthT
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
   fragmentShader:`uniform sampler2D map;uniform float uA,uMir,uFull;varying vec2 vUv;
     void main(){vec3 c=texture2D(map,vec2(mix(vUv.x,1.-vUv.x,uMir),vUv.y)).rgb;float g=dot(c,vec3(.3,.59,.11));g=smoothstep(.08,.85,g);   // soft grey; mirrored for the front camera only
-      vec2 q=abs(vUv-.5);float m=mix(smoothstep(.5,.18,length((vUv-.5)*vec2(1.,.9))),smoothstep(.5,.3,q.x)*smoothstep(.5,.3,q.y),uFull);   /* an oval for your face; the whole view, edges melted, for the back camera */gl_FragColor=vec4(vec3(.78,.82,1.)*g*m*uA,1.);}`});
+      vec2 q=abs(vUv-.5);float m=mix(1.,.6,smoothstep(.3,.75,length(vUv-.5)));   /* the whole frame, both cameras: a soft vignette, never an edge */   /* an oval for your face; the whole view, edges melted, for the back camera */gl_FragColor=vec4(vec3(.78,.82,1.)*g*m*uA,1.);}`});
 const facePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),faceMat);facePlane.renderOrder=-10;facePlane.visible=false;camera.add(facePlane);
 /* the camera comes on with the first recording, front first (your face, an oval in the sky); the flip button swaps to the back camera (what's in front of you, full screen) and back */
 let camMode=null;
@@ -600,7 +601,7 @@ $("rec").onclick=async()=>{unmuteIOS();audio.keep&&audio.keep.play().catch(()=>{
   if(!camMode&&!camBusy){camBusy=true;try{await setCam("user")}finally{camBusy=false}}   // first recording: ask for the camera now and start on your face; a refusal still records the sky
   startRec()};
 const clipName=()=>`ya-leil-sky.${(clipBlob.type||"").includes("webm")?"webm":"mp4"}`;
-$("again").onclick=()=>{$("sheet").hidden=true;URL.revokeObjectURL($("clip").src)};
+$("again").onclick=()=>{$("sheet").hidden=true;URL.revokeObjectURL($("clip").src)};$("back").onclick=()=>$("again").onclick();
 $("share").onclick=async()=>{const file=new File([clipBlob],clipName(),{type:clipBlob.type});
   if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:CONFIG.titleEn})}catch(e){}}else $("save").click()};
 $("save").onclick=()=>{const a=document.createElement("a");a.href=$("clip").src;a.download=clipName();document.body.append(a);a.click();a.remove()};
@@ -729,15 +730,15 @@ function frame(){
   faceK+=((faceOn?1:0)-faceK)*.06;facePlane.visible=faceK>.01;
   skyMat.uniforms.uEnv.value=(1-.45*faceK)*(window.__dim||1);bscMat.uniforms.uEnv.value=starsMat.uniforms.uEnv.value=(1-.25*faceK)*(.35+.65*(window.__dim||1));   // the camera reads clearly: the sky steps back under it
   const pre=document.body.classList.contains("pre"),recOn=!!(rec&&rec.state==="recording");
-  hills.forEach(h=>h.m.visible=!recOn);   // the clip is only sky, stars and the moon
+  hills.forEach(h=>h.m.visible=true);   // the clip is only sky, stars and the moon
   moonK+=((pre?0:1)-moonK)*.04;skyMat.uniforms.uMK.value=moonK;   // the opening screen is sky and stars; the moon and its letters arrive once you start
   moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK*(.06+.94*Math.min(1,MOON_ILL*1.5))});ringMat.uniforms.uA.value*=moonK;
   stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});faintLines.forEach(l=>{l.visible=moonK>.01;l.material.opacity=l.userData.base*moonK});
   if(pathObj)pathObj.visible=pathMark.visible=!pre;
   cover.visible=moonK>.01&&!!sharpRoot;if(cover.visible)placeCover(t,now);
   if(facePlane.visible){const fh=2*10*Math.tan(camera.fov/2*RAD),ar=faceVideo.videoWidth&&faceVideo.videoHeight?faceVideo.videoWidth/faceVideo.videoHeight:.75;
-    if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.08;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.5*faceK}   // fills the screen
-    else{facePlane.scale.set(fh*.78*ar,fh*.78,1);facePlane.position.set(0,fh*.04,-10);faceMat.uniforms.uA.value=.6*faceK}}
+    if(camMode==="environment"){const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.03;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.5*faceK}   // fills the screen
+    else{const fw=fh*camera.aspect,w=Math.max(fw,fh*ar)*1.03;facePlane.scale.set(w,w/ar,1);facePlane.position.set(0,0,-10);faceMat.uniforms.uA.value=.6*faceK/* your face fills the frame too */}}
   if(rec&&rec.state==="recording"){const p=Math.min(1,(now-recT0)/(CONFIG.clipSeconds*1000));$("recArc").setAttribute("stroke-dashoffset",String(153.9*(1-p)));if(p>=1)stopRec()}
   else $("recArc").setAttribute("stroke-dashoffset","153.9");
   guide();
