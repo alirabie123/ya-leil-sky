@@ -296,9 +296,9 @@ const moon=new THREE.Mesh(new THREE.SphereGeometry(MOON_R,160,96),new THREE.Shad
       float hy=texture2D(hmap,vUv+vec2(0.,uTx.y)).r-texture2D(hmap,vUv-vec2(0.,uTx.y)).r;
       vec3 nb=normalize(n-uBump*(hx*east+hy*north));
       float ci=max(dot(nb,L),0.),ce=max(dot(n,V),.02),ls=ci/(ci+ce);
-      ls*=smoothstep(-.03,.06,dot(n,L));                                         // the terminator, softened by a few degrees
+      ls*=smoothstep(-.004,.014,dot(n,L));                                         // the terminator, softened by a few degrees
       vec3 alb=texture2D(map,vUv).rgb;
-      float es=.028*pow(clamp(.5-.5*dot(L,V),0.,1.),1.5)*ce;                       // earthshine: strongest at a thin crescent
+      float es=.024*pow(clamp(.5-.5*dot(L,V),0.,1.),1.5)*(.55+.45*ce);                       // earthshine: strongest at a thin crescent
       float night=1.-smoothstep(-.05,.1,dot(n,L));
       gl_FragColor=vec4(alb*(ls*2.6+es*night*3.+.01)*uBoost,1.);
       #include <colorspace_fragment>
@@ -508,7 +508,10 @@ function hillLayer(radius,amp,base,seed,top,bottom,alpha){
   const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("hcol",new THREE.Float32BufferAttribute(col,4));g.setAttribute("hv",new THREE.Float32BufferAttribute(vv,1));g.setIndex(idx);
   const lift=new THREE.Color(1,1,1);
   const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,uniforms:{uLift:{value:lift},uSun:{value:SKY.sun},uMoon:{value:SKY.moon},uR:{value:radius},uSeed:{value:seed}},
-    vertexShader:`attribute vec4 hcol;attribute float hv;varying vec4 vC;varying vec3 vW;varying float vV;void main(){vC=hcol;vV=hv;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
+    vertexShader:`attribute vec4 hcol;attribute float hv;uniform vec3 uMoon;uniform float uR;varying vec4 vC;varying vec3 vW;varying float vV;void main(){vC=hcol;vV=hv;vec3 P=position;
+      if(hv<.5){float da=abs(mod(atan(P.x,-P.z)-atan(uMoon.x,-uMoon.z)+3.14159265,6.2831853)-3.14159265),malt=asin(clamp(normalize(uMoon).y,-1.,1.));
+        float lim=uR*tan(max(malt-.05,-.16)),w=1.-smoothstep(.0,.55,da);w=w*w*(3.-2.*w);P.y=mix(P.y,min(P.y,lim+(P.y-lim)*.15),w);}   // the hills open a gentle valley under a low moon
+      vec4 w=modelMatrix*vec4(P,1.);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
     fragmentShader:`uniform vec3 uLift,uSun,uMoon;uniform float uR,uSeed;varying vec4 vC;varying vec3 vW;varying float vV;
       ${NOISE}
       void main(){float az=atan(vW.x,-vW.z);vec2 p=vec2(az*uR,vW.y)*(3.2/uR*60.)+uSeed*40.;
@@ -548,6 +551,7 @@ const groundMat=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,unifo
       gl_FragColor=vec4(c,1.);
       #include <colorspace_fragment>
     }`});
+let MOON_ILL=.5;
 const ground=new THREE.Mesh(new THREE.CircleGeometry(3900,256).rotateX(-Math.PI/2).translate(0,-160,0),groundMat);ground.renderOrder=14;scene.add(ground);
 /* ---------- daytime: tonight's path of the moon, with its spot at 9 pm ---------- */
 let pathObj=null,pathMark=null,pathInfo=null;
@@ -762,7 +766,7 @@ const fwd=new THREE.Vector3();
 function frame(){
   const t=clock.getElapsedTime(),now=performance.now();
   if(now-lastSky>5000){lastSky=now;SKY=withShow(skyAt(TQ_?TQ:Date.now()));skyMat.uniforms.uSun.value=SKY.sun;skyMat.uniforms.uMoon.value=SKY.show;skyMat.uniforms.uNGP.value=SKY.ngp;skyMat.uniforms.uGC.value=SKY.gc;
-    starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=gaiaMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;hills.forEach(h=>{const u=h.m.material.uniforms;u.uSun.value=SKY.sun;u.uMoon.value=SKY.moon});groundMat.uniforms.uSun.value=SKY.sun;groundMat.uniforms.uMoon.value=SKY.moon;placeMoon();alignGalaxy();
+    starsMat.uniforms.uSun.value=bscMat.uniforms.uSun.value=gaiaMat.uniforms.uSun.value=SKY.sun;moon.material.uniforms.uL.value=SKY.sun;hills.forEach(h=>{const u=h.m.material.uniforms;u.uSun.value=SKY.sun;u.uMoon.value=SKY.moon});MOON_ILL=.5-.5*SKY.sun.clone().normalize().dot(SKY.moon.clone().normalize());groundMat.uniforms.uSun.value=SKY.sun;groundMat.uniforms.uMoon.value=SKY.moon;placeMoon();alignGalaxy();
     if(!seq.length&&!solved){chooseAnchor();stars.forEach((s,i)=>s.position.copy(starDir(i)).multiplyScalar(18000))}   // follow the moon until the game starts
     const dayish=SKY.sun.y>-.1;if(dayish&&!pathInfo)buildPath();if(!dayish&&pathObj){scene.remove(pathObj,pathMark);pathObj=pathMark=null;pathInfo=null}
     const lift=1+1.5*Math.max(0,Math.min(1,(SKY.sun.y+.04)/.14));hills.forEach(h=>h.m.material.color.setScalar(lift));groundMat.uniforms.uLift.value=lift}
@@ -791,7 +795,7 @@ function frame(){
   const pre=document.body.classList.contains("pre"),recOn=!!(rec&&rec.state==="recording");
   hills.forEach(h=>h.m.visible=!recOn);ground.visible=!recOn;   // the clip is only sky, stars and the moon
   moonK+=((pre?0:1)-moonK)*.04;skyMat.uniforms.uMK.value=moonK;   // the opening screen is sky and stars; the moon and its letters arrive once you start
-  moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK});ringMat.uniforms.uA.value*=moonK;
+  moon.visible=haloRing.visible=moonK>.01;moonGlow.forEach(h=>{h.visible=moonK>.01;h.material.opacity=moonK*(.06+.94*Math.min(1,MOON_ILL*1.5))});ringMat.uniforms.uA.value*=moonK;
   stars.forEach(s=>{s.visible=moonK>.01;s.material.opacity*=moonK});faint.forEach(f=>{f.visible=moonK>.01;f.material.opacity*=moonK});faintLines.forEach(l=>{l.visible=moonK>.01;l.material.opacity=l.userData.base*moonK});
   if(pathObj)pathObj.visible=pathMark.visible=!pre;
   cover.visible=moonK>.01&&!!sharpRoot;if(cover.visible)placeCover(t,now);
