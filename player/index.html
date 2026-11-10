@@ -62,8 +62,18 @@ paint();
 let ctx,buf,src=null,playing=false,pos=0,startAt=0,rate=1,targetRate=1;
 let dry,wet,lp,conv,out;
 const SONG=fetch("ya-leil.mp3?v=full1").then(r=>r.arrayBuffer());   // the full song starts downloading as the page opens
+/* iPhones: play even with the ring/silent switch on ("playback" audio session; older iOS: a silent looping <audio> started in the same tap),
+   and unlock on the tap's release, which is when iOS allows sound */
+let keep=null;
+function unmuteIOS(){try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  if(keep)return;const n=4410,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,44100,true);v.setUint32(28,88200,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+  keep=new Audio(URL.createObjectURL(new Blob([b],{type:"audio/wav"})));keep.loop=true;keep.setAttribute("playsinline","");keep.play().catch(()=>{})}
+function makeCtx(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx}
+function unlock(){unmuteIOS();makeCtx();if(ctx.state!=="running")ctx.resume().catch(()=>{});keep&&keep.paused&&keep.play().catch(()=>{})}
+["pointerup","touchend","click"].forEach(t=>addEventListener(t,unlock,{passive:true}));
 async function initAudio(){
-  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  makeCtx();
   const data=await SONG;buf=await ctx.decodeAudioData(data);
   out=ctx.createGain();out.connect(ctx.destination);
   lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=20000;lp.Q.value=.7;
@@ -78,7 +88,7 @@ function startAtPos(p){if(src){src.onended=null;try{src.stop()}catch(e){}}
   pos=p%buf.duration;startAt=ctx.currentTime}
 function setRate(r,glide=.25){pos=now();startAt=ctx.currentTime;rate=r;if(src)src.playbackRate.setTargetAtTime(r,ctx.currentTime,glide/3)}
 async function toggle(){
-  if(!ctx)await initAudio();if(ctx.state==="suspended")await ctx.resume();
+  unlock();if(!buf)await (window.__initP||(window.__initP=initAudio()));if(ctx.state==="suspended")ctx.resume().catch(()=>{});
   
   if(!playing){playing=true;rate=.05;startAtPos(pos);setRate(targetRate,.9)}             // spins up like a deck
   else{setRate(.04,.7);setTimeout(()=>{pos=now();if(src){try{src.stop()}catch(e){}src=null}playing=false;rate=targetRate},700)}   // tape stop
