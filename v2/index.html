@@ -123,7 +123,7 @@ import {EffectComposer} from "./pp/EffectComposer.js";import {RenderPass} from "
 /* ============ CONFIG ============ */
 const CONFIG={
   title:"يا ليل",titleEn:"Ya Leil",
-  releaseAr:"١٥ نوفمبر",releaseEn:"15 November",
+  releaseAr:"١٧ نوفمبر",releaseEn:"17 November",
   others:["مهرب","ازاي اسيب","النهاية","مساحات","خسرت نفسي","فاكراه"],   // faint, untappable letters of the other songs
   fallback:{lat:30.0444,lng:31.2357},   // Cairo, when location is refused
   declination:4.5,                      // magnetic → true north (degrees east, Cairo)
@@ -444,7 +444,7 @@ const COVER_D=14000,COVER_S=COVER_D*Math.tan(9*RAD),COVER_FAR=.55;   // at rest 
 const cover=new THREE.Group();cover.visible=false;scene.add(cover);
 const coverKey=new THREE.DirectionalLight(0xdfe6f2,2.4),coverFill=new THREE.AmbientLight(0x9aa4b4,.55);scene.add(coverKey,coverFill);
 /* it sits in shadow: you see its outline against a faint glow behind it and one lit corner. The light on its face grows day by day until the release (?lit=0..1 previews) */
-const RELEASE=Date.UTC(2026,10,15,19),LIGHT_FROM=Date.UTC(2026,10,1),litQ=new URLSearchParams(location.search).get("lit");
+const RELEASE=Date.UTC(2026,10,17,19),LIGHT_FROM=Date.UTC(2026,10,1),litQ=new URLSearchParams(location.search).get("lit");
 const coverLit=()=>litQ!==null?Math.max(0,Math.min(1,+litQ)):Math.max(0,Math.min(1,(Date.now()-LIGHT_FROM)/(RELEASE-LIGHT_FROM)));
 const coverCorner=new THREE.PointLight(0xf4f0e6,9,COVER_S*.8,0);coverCorner.position.set(-.47*COVER_S,.47*COVER_S,.1*COVER_S);cover.add(coverCorner);   // a light just off the top-left corner
 const rimTex=(()=>{const c=document.createElement("canvas");c.width=c.height=256;const g=c.getContext("2d");g.filter="blur(14px)";g.fillStyle="#fff";g.fillRect(40,40,176,176);return new THREE.CanvasTexture(c)})();
