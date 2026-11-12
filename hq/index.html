@@ -612,18 +612,13 @@ function chime(){if(!audio.ctx)return;const c=audio.ctx,t=c.currentTime;[880,131
 /* ambient: a low drone in C that starts with the game and swells (and opens up) as you turn toward the moon; it steps aside while the snippet plays */
 const amb={g:null,lp:null,duck:1,last:0};
 function ambientStart(){if(!audio.ctx||amb.g)return;const c=audio.ctx,t=c.currentTime;
+  const el=new Audio("zad-moon-ambient.m4a");el.loop=true;el.preload="auto";el.crossOrigin="anonymous";el.playsInline=true;
   const g=c.createGain();g.gain.setValueAtTime(0,t);g.connect(audio.out);
-  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=420;lp.Q.value=.7;lp.connect(g);
-  [[65.41,"sine",.5,0],[98,"triangle",.16,-4],[130.81,"sawtooth",.05,-7],[130.81,"sawtooth",.05,7],[196,"sine",.06,3],[155.56,"sine",.035,0]].forEach(([f,type,v,det])=>{   // C, G, a detuned C pair, G, Eb: C minor, open and dark
-    const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;o.detune.value=det;og.gain.value=v;
-    const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.05+Math.random()*.08;lg.gain.value=v*.5;lfo.connect(lg);lg.connect(og.gain);   // slow breathing
-    o.connect(og);og.connect(lp);o.start(t);lfo.start(t)});
-  const n=c.createBuffer(1,c.sampleRate*4,c.sampleRate),d=n.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;   // air: soft filtered noise, like wind over sand
-  const ns=c.createBufferSource();ns.buffer=n;ns.loop=true;const bp=c.createBiquadFilter();bp.type="bandpass";bp.frequency.value=700;bp.Q.value=.6;const ng=c.createGain();ng.gain.value=.025;
-  ns.connect(bp);bp.connect(ng);ng.connect(g);ns.start(t);amb.g=g;amb.lp=lp}
+  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;lp.Q.value=.5;lp.connect(g);
+  c.createMediaElementSource(el).connect(lp);el.play().catch(()=>{});amb.el=el;amb.g=g;amb.lp=lp}
 function ambientUpdate(){if(!amb.g)return;const now=performance.now();if(now-amb.last<120)return;amb.last=now;const t=audio.ctx.currentTime;
   const ang=fwd.angleTo(moon.position.clone().normalize())/RAD,x=Math.max(0,Math.min(1,(70-ang)/62)),k=x*x*(3-2*x);   // 0 looking away, 1 with the moon in the middle
-  amb.g.gain.setTargetAtTime((.045+.11*k)*amb.duck,t,.4);amb.lp.frequency.setTargetAtTime(380+1500*k,t,.5)}
+  amb.g.gain.setTargetAtTime((.38+.62*k)*amb.duck,t,.6);amb.lp.frequency.setTargetAtTime(900+15000*k*k,t,.6)}
 /* notes: each right star rings the next step up a C minor line; a wrong one thuds; stepping back drops a step */
 const SCALE=[261.63,311.13,349.23,392,523.25,622.25];   // C Eb F G C Eb
 let echo=null;
