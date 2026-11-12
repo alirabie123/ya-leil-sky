@@ -717,6 +717,11 @@ $("share").onclick=async()=>{const file=new File([clipBlob],clipName(),{type:cli
   if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:CONFIG.titleEn})}catch(e){}}else $("save").click()};
 $("save").onclick=()=>{const a=document.createElement("a");a.href=$("clip").src;a.download=clipName();document.body.append(a);a.click();a.remove()};
 
+/* ---------- leaving the page: everything goes quiet (a recording in progress is stopped) and picks up again on return ---------- */
+function pageAway(){if(rec&&rec.state==="recording")stopRec();stopSnippet();if(amb.el)amb.el.pause();if(audio.keep)audio.keep.pause();if(audio.ctx&&audio.ctx.state==="running")audio.ctx.suspend()}
+function pageBack(){if(!audio.ctx)return;audio.ctx.resume();if(amb.el)amb.el.play().catch(()=>{});if(audio.keep)audio.keep.play().catch(()=>{})}
+document.addEventListener("visibilitychange",()=>document.hidden?pageAway():pageBack());addEventListener("pagehide",pageAway);addEventListener("pageshow",e=>{if(e.persisted)pageBack()});
+
 /* ---------- looking around: the phone's motion (gyroscope + compass), or dragging on a computer ---------- */
 const ORI={ok:false,offset:null,q:new THREE.Quaternion(),target:new THREE.Quaternion()};
 function rotMatrix(a,b,g){const cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
@@ -780,7 +785,7 @@ function say(pair,ms){$("subAr").textContent=pair[0];$("subEn").textContent=pair
 const SUB={find:["المس النجوم بالترتيب عشان تعرف اسم الأغنية · افتح الاسم عشان تسمع جزء منها","Tap the stars in order to find the song's name · Unlock the title to listen to a snippet"],
   going:["كمّل · المس آخر نجمة عشان ترجع خطوة","Keep going · tap the last star to step back"],
   wrong:["مش بالترتيب ده · جرّب تاني","Not in that order · try again"],
-  solved:[`${CONFIG.title} · سجّل وانت بتسمعها`,`${CONFIG.titleEn} · record it while you listen`]};
+  solved:[`${CONFIG.title} · سجّل عشان تسمعها`,`${CONFIG.titleEn} · record to hear it`]};
 function guide(){
   if(performance.now()<sayUntil)return;
   const c=new THREE.Vector3();stars.forEach(s=>c.add(s.position));if(!stars.length)return;c.normalize().multiplyScalar(18000);
