@@ -449,7 +449,7 @@ function reveal(){document.body.classList.add("won");
     const w=18000*Math.tan(30*RAD);const sp=new THREE.Mesh(new THREE.PlaneGeometry(w,w*c.height/W),titleMat(t,TH/c.height));sp.layers.set(1);sp.renderOrder=70;sp.userData.s0=sp.scale.clone();return sp})();
   // just above the ring of letters
   titleLabel.position.copy(dirAA(altOf(SKY.show)+26*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.userData.t0=performance.now();scene.add(titleLabel);dramaBegin();
-  state="solved";chime();$("rec").classList.add("call");setTimeout(()=>{if(!recordedOnce)document.body.classList.add("rectip")},4500);
+  COUNT("solved");state="solved";chime();$("rec").classList.add("call");setTimeout(()=>{if(!recordedOnce)document.body.classList.add("rectip")},4500);
 }
 
 /* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; it stays out there, in shadow, brightening toward the release ---------- */
@@ -606,7 +606,7 @@ function startRec(){
 let recordedOnce=false;
 function stopRec(){if(rec&&rec.state!=="inactive")rec.stop();$("rec").classList.remove("on");document.body.classList.remove("recording")}
 $("rec").onclick=async()=>{unmuteIOS();audio.keep&&audio.keep.play().catch(()=>{});audio.ctx&&audio.ctx.resume();
-  if(rec&&rec.state==="recording")return stopRec();recordedOnce=true;document.body.classList.remove("rectip");
+  if(rec&&rec.state==="recording")return stopRec();recordedOnce=true;document.body.classList.remove("rectip");COUNT("recorded");
   if(!camMode&&!camBusy){camBusy=true;try{await setCam("user")}finally{camBusy=false}}   // first recording: ask for the camera now and start on your face; a refusal still records the sky
   startRec()};
 const clipName=()=>`ya-leil-sky.${(clipBlob.type||"").includes("webm")?"webm":"mp4"}`;
@@ -616,6 +616,9 @@ $("share").onclick=async()=>{const file=new File([clipBlob],clipName(),{type:cli
 $("save").onclick=()=>{const a=document.createElement("a");a.href=$("clip").src;a.download=clipName();document.body.append(a);a.click();a.remove()};
 
 /* ---------- leaving the page: everything goes quiet (a recording in progress is stopped) and picks up again on return ---------- */
+ const COUNT=k=>{if(!location.hostname.endsWith("ghaybalqamar.com")||!/^\/(index\.html)?$/.test(location.pathname))return;
+  try{if(localStorage.getItem("counted-"+k))return;localStorage.setItem("counted-"+k,"1")}catch(e){}
+  fetch("https://abacus.jasoncameron.dev/hit/ghaybalqamar/yaleil-"+k,{mode:"cors",keepalive:true}).catch(()=>{})};
 function pageAway(){if(rec&&rec.state==="recording")stopRec();stopSnippet();if(amb.el)amb.el.pause();if(audio.keep)audio.keep.pause();if(audio.ctx&&audio.ctx.state==="running")audio.ctx.suspend()}
 function pageBack(){if(!audio.ctx)return;audio.ctx.resume();if(amb.el)amb.el.play().catch(()=>{});if(audio.keep)audio.keep.play().catch(()=>{})}
 document.addEventListener("visibilitychange",()=>document.hidden?pageAway():pageBack());addEventListener("pagehide",pageAway);addEventListener("pageshow",e=>{if(e.persisted)pageBack()});
@@ -763,7 +766,7 @@ function frame(){
 }
 
 /* ---------- start ---------- */
-$("go").onclick=async()=>{yaw=anchorAz;pitch=anchorAlt+4*RAD;vy=vp=0;
+$("go").onclick=async()=>{COUNT("started");yaw=anchorAz;pitch=anchorAlt+4*RAD;vy=vp=0;
   audioInit();ambientStart();await startOrientation();
   navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{geo={lat:p.coords.latitude,lng:p.coords.longitude};lastSky=0},()=>{},{timeout:8000,maximumAge:6e5});
   try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}

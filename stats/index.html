@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ya Leil · Counts</title>
+<style>
+  @font-face{font-family:KA;src:url(../ka-hand-naskh.ttf)}
+  html,body{margin:0;background:#0a0b0a;color:#efeae0;font:400 14px/1.5 -apple-system,Helvetica,Arial,sans-serif}
+  main{max-width:520px;margin:auto;padding:48px max(20px,env(safe-area-inset-left)) 40px;display:grid;gap:28px}
+  h1{margin:0;font:400 30px/1.2 KA,serif}h1 span{display:block;font:500 10px/1 -apple-system,Helvetica,Arial,sans-serif;letter-spacing:.32em;opacity:.5;margin-top:10px}
+  .row{display:grid;grid-template-columns:1fr auto;align-items:baseline;border-top:1px solid rgba(239,234,224,.14);padding-top:16px}
+  .row b{font:300 54px/1 "IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}.row small{display:block;opacity:.55;margin-top:4px}
+  .row.hi b{color:#fff}.k{font-size:15px}
+  p{margin:0;opacity:.5;font-size:12px}
+</style></head><body><main>
+  <h1>يا ليل · كام واحد عرفها<span>YA LEIL · PEOPLE, ONCE EACH PER PHONE</span></h1>
+  <div class="row"><div class="k">Started<small>tapped ابدأ</small></div><b id="started">–</b></div>
+  <div class="row hi"><div class="k">Solved<small>found the name · <span id="rate">–</span> of starters</small></div><b id="solved">–</b></div>
+  <div class="row"><div class="k">Recorded<small>made a clip · <span id="rrate">–</span> of solvers</small></div><b id="recorded">–</b></div>
+  <p>Updates every 30 seconds. Counting began 12 November 2026; earlier visitors aren't included. <span id="at"></span></p>
+</main>
+<script>
+const K=["started","solved","recorded"],v={};
+async function load(){await Promise.all(K.map(async k=>{try{const r=await fetch("https://abacus.jasoncameron.dev/get/ghaybalqamar/yaleil-"+k);const d=await r.json();v[k]=d.value>=0?d.value:0}catch(e){}}));
+  K.forEach(k=>{if(v[k]!=null)document.getElementById(k).textContent=v[k].toLocaleString("en")});
+  const pct=(a,b)=>b?Math.round(a/b*100)+"%":"–";document.getElementById("rate").textContent=pct(v.solved,v.started);document.getElementById("rrate").textContent=pct(v.recorded,v.solved);
+  document.getElementById("at").textContent="Last checked "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})+"."}
+load();setInterval(load,30000);
+</script></body></html>
