@@ -595,7 +595,7 @@ $("rec").onclick=async()=>{unmuteIOS();audio.keep&&audio.keep.play().catch(()=>{
   if(!camMode&&!camBusy){camBusy=true;try{await setCam("user")}finally{camBusy=false}}   // first recording: ask for the camera now and start on your face; a refusal still records the sky
   startRec()};
 const clipName=()=>`ya-leil-sky.${(clipBlob.type||"").includes("webm")?"webm":"mp4"}`;
-$("again").onclick=()=>{$("sheet").hidden=true;URL.revokeObjectURL($("clip").src)};$("back").onclick=()=>$("again").onclick();
+$("again").onclick=()=>{$("sheet").hidden=true;URL.revokeObjectURL($("clip").src)};$("back").onclick=()=>{$("again").onclick();stopCam();camMode=null;faceOn=false};
 $("share").onclick=async()=>{const file=new File([clipBlob],clipName(),{type:clipBlob.type});
   if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:CONFIG.titleEn})}catch(e){}}else $("save").click()};
 $("save").onclick=()=>{const a=document.createElement("a");a.href=$("clip").src;a.download=clipName();document.body.append(a);a.click();a.remove()};
