@@ -36,8 +36,16 @@ html,body{margin:0;height:100%;background:var(--void);color:var(--paper);overflo
 .round[aria-pressed="true"]{background:var(--paper);color:var(--void)}
 #rec span{width:22px;height:22px;border-radius:50%;background:var(--rec);transition:all .25s}
 #rec.on span{width:16px;height:16px;border-radius:4px}
-#rec.call{animation:call 1.4s ease-in-out infinite}
-@keyframes call{50%{box-shadow:0 0 0 8px rgba(239,234,224,.16)}}
+#rec.call{animation:call 1.3s ease-in-out infinite}
+@keyframes call{0%,100%{box-shadow:0 0 0 0 rgba(200,50,30,.55),0 0 0 0 rgba(239,234,224,.2)}60%{box-shadow:0 0 0 12px rgba(200,50,30,0),0 0 0 5px rgba(239,234,224,.18)}}
+#recTip{position:fixed;z-index:5;right:max(max(16px,env(safe-area-inset-right)),calc(50% - 174px));bottom:calc(max(14px,env(safe-area-inset-bottom)) + 14px + 52px + 16px);
+  padding:10px 16px 9px;border-radius:14px;background:rgba(239,234,224,.94);color:#0a0b0a;text-align:center;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.45);
+  opacity:0;transform:translateY(8px);transition:opacity .6s ease,transform .6s ease}
+#recTip b{display:block;font:400 19px/1.25 "KA Hand Naskh",serif}#recTip span{display:block;margin-top:3px;font:600 9px/1 -apple-system,Helvetica,Arial,sans-serif;letter-spacing:.24em}
+#recTip::after{content:"";position:absolute;right:19px;bottom:-7px;width:14px;height:14px;background:inherit;transform:rotate(45deg);border-radius:2px}
+body.won.rectip:not(.recording) #recTip{opacity:1;transform:none;animation:tipbob 1.6s ease-in-out .6s infinite}
+body.won.rectip:not(.recording) .sub{opacity:0;transition:opacity .4s}
+@keyframes tipbob{50%{transform:translateY(-5px)}}
 #rec svg{position:absolute;width:52px;height:52px;transform:rotate(-90deg);pointer-events:none}
 #face{transition:opacity .5s ease,transform .5s ease}body:not(.recording) #face{opacity:0;pointer-events:none;transform:scale(.85)}#rec{position:relative;transition:opacity .9s ease,transform .9s ease}body:not(.won) #rec{opacity:0;pointer-events:none;transform:scale(.85)}
 .compass{direction:ltr;position:relative;flex:1 1 auto;max-width:220px;height:52px;border:1px solid var(--line);border-radius:999px;background:rgba(10,11,10,.55);overflow:hidden;pointer-events:none;
@@ -102,6 +110,7 @@ body.pre .sub,body.pre .credit,body.pre #arrow{opacity:0}
 <div class="sub" id="sub" aria-live="polite"><span class="ar" id="subAr"></span><span class="en" id="subEn"></span></div>
 <svg id="arrow" viewBox="-26 -26 52 52" hidden aria-hidden="true"><path d="M0,-18 L13,9 L0,3 L-13,9Z" fill="currentColor"/></svg>
 <span class="credit">Milky Way: ESO/S. Brunier</span>
+<div id="recTip" aria-hidden="true"><b>سجّل عشان تسمعها</b><span>RECORD TO HEAR IT</span></div>
 <div class="row" id="row" hidden>
   <button class="round" id="face" type="button" aria-label="Flip the camera"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2"/><path d="M19.5 12a7.5 7.5 0 0 1-12.9 5.2"/><path d="M17.9 3.4v3.9H14"/><path d="M6.1 20.6v-3.9H10"/></svg></button>
   <div class="compass" aria-hidden="true"><div class="strip" id="strip"></div><div class="needle"></div></div>
@@ -440,7 +449,7 @@ function reveal(){document.body.classList.add("won");
     const w=18000*Math.tan(30*RAD);const sp=new THREE.Mesh(new THREE.PlaneGeometry(w,w*c.height/W),titleMat(t,TH/c.height));sp.layers.set(1);sp.renderOrder=70;sp.userData.s0=sp.scale.clone();return sp})();
   // just above the ring of letters
   titleLabel.position.copy(dirAA(altOf(SKY.show)+26*RAD,azOf(SKY.show))).multiplyScalar(18000);titleLabel.userData.t0=performance.now();scene.add(titleLabel);dramaBegin();
-  state="solved";chime();$("rec").classList.add("call");
+  state="solved";chime();$("rec").classList.add("call");setTimeout(()=>{if(!recordedOnce)document.body.classList.add("rectip")},4500);
 }
 
 /* ---------- the cover: the Ya Leil sleeve (modelled in Blender), floating above the ring of letters; it stays out there, in shadow, brightening toward the release ---------- */
@@ -594,9 +603,10 @@ function startRec(){
   rec.start(250);recT0=performance.now();$("rec").classList.add("on");document.body.classList.add("recording");$("rec").classList.remove("call");
   if(solved)playSnippet();   // the snippet starts with the recording, so every clip opens on the hook
 }
+let recordedOnce=false;
 function stopRec(){if(rec&&rec.state!=="inactive")rec.stop();$("rec").classList.remove("on");document.body.classList.remove("recording")}
 $("rec").onclick=async()=>{unmuteIOS();audio.keep&&audio.keep.play().catch(()=>{});audio.ctx&&audio.ctx.resume();
-  if(rec&&rec.state==="recording")return stopRec();
+  if(rec&&rec.state==="recording")return stopRec();recordedOnce=true;document.body.classList.remove("rectip");
   if(!camMode&&!camBusy){camBusy=true;try{await setCam("user")}finally{camBusy=false}}   // first recording: ask for the camera now and start on your face; a refusal still records the sky
   startRec()};
 const clipName=()=>`ya-leil-sky.${(clipBlob.type||"").includes("webm")?"webm":"mp4"}`;
