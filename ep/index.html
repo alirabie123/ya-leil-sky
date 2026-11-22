@@ -138,7 +138,7 @@ import {EffectComposer} from "./pp/EffectComposer.js";import {RenderPass} from "
 const CONFIG={
   title:"يا ليل",titleEn:"Ya Leil",
   releaseAr:"١٧ نوفمبر",releaseEn:"17 November",
-  others:["مهرب","ازاي اسيب","النهاية","مساحات","خسرت نفسي","فاكراه"],   // faint, untappable letters of the other songs
+  others:["مهرب","ازاي اسيب","غيب القمر","النهاية","مساحات","خسرت نفسي","فاكراه"],   // faint, untappable letters of the other songs
   fallback:{lat:30.0444,lng:31.2357},   // Cairo, when location is refused
   declination:4.5,                      // magnetic → true north (degrees east, Cairo)
   clipSeconds:26,
@@ -335,11 +335,11 @@ function textSprite(lines,{dist=19000,deg=3}={}){
 
 /* ---------- the constellation: placed near the moon when it's up, otherwise high in the south ---------- */
 const EPQ=new URLSearchParams(location.search),EP_STAGE=EPQ.get("stage")||"ep",EP_ON=EP_STAGE==="ep"||EP_STAGE==="out";
-const EP={date:EPQ.get("ep")?Date.parse(EPQ.get("ep")):Date.UTC(2027,0,8,19),title:"غيب القمر",titleEn:"GHAYB AL QAMAR",
-  // eight songs, eight phases, in track order from the new moon round to the waning crescent; the 4th is an untitled interlude
-  phases:[{t:"مهرب",en:"Mahrab"},{t:"يا ليل",en:"Ya Leil"},{t:"ازاي اسيب",en:"Ezay Aseeb"},{t:"",en:"Interlude"},
+const EP={date:EPQ.get("ep")?Date.parse(EPQ.get("ep")):Date.UTC(2026,11,9,19),title:"غيب القمر",titleEn:"GHAYB AL QAMAR",
+  // eight songs, eight phases, in track order from the new moon round to the waning crescent; the 4th is the title track, غيب القمر
+  phases:[{t:"مهرب",en:"Mahrab"},{t:"يا ليل",en:"Ya Leil"},{t:"ازاي اسيب",en:"Ezay Aseeb"},{t:"غيب القمر",en:"Ghayb al Qamar"},
           {t:"النهاية",en:"El Nehaya"},{t:"مساحات",en:"Mesa7at"},{t:"خسرت نفسي",en:"Khesert Nafsy"},{t:"فاكراه",en:"Fakrah"}].map((o,i)=>({...o,p:i/8})),
-  released:EP_STAGE==="out"?null:(EPQ.get("rel")||"يا ليل,النهاية").split(",")};
+  released:EP_STAGE==="out"?null:(EPQ.get("rel")||"يا ليل").split(",")};
 const EP_REL=t=>EP_ON&&(!EP.released||EP.released.includes(t));
 if(EP_ON)CONFIG.others=["يا ليل",...CONFIG.others];   // Ya Leil joins the others as a constellation of its own
 const TITLE=[...CONFIG.title].filter(c=>c.trim()),OFFS=[[-12,-6],[-15,7],[-4,12],[8,4],[14,13]];   // a loose, irregular constellation round the moon (degrees: across, up), in the order the letters are tapped
@@ -499,7 +499,7 @@ function placeCover(t,now){
   ringMat.uniforms.uA.value*=1+2.2*k;   // the corona: the halo ring flares round the dark disc
   return k}
 
-/* ---------- EP coming soon: the seven phases ring the real moon, each lit by its own phase (?stage=ep · ?stage=out · ?ep=2027-01-08T19:00Z · ?rel=يا ليل,النهاية) ---------- */
+/* ---------- EP coming soon: the seven phases ring the real moon, each lit by its own phase (?stage=ep · ?stage=out · ?ep=2026-12-09T19:00Z · ?rel=يا ليل) ---------- */
 const EPG={moons:[],rings:[],R:13,MR:.62};
 function epBasis(){const m=SKY.show.clone().normalize(),z=new THREE.Vector3(0,1,0);const up=z.clone().sub(m.clone().multiplyScalar(m.dot(z)));if(up.lengthSq()<1e-6)up.set(0,0,-1);up.normalize();
   return {m,up,right:new THREE.Vector3().crossVectors(m,up).normalize()}}
@@ -589,7 +589,7 @@ function EPframe(t,now){
     const ms=EP.date-Date.now();let html;
     if(EP_STAGE==="out"||ms<=0)html=`<span class="k">${EP.title} · متاح الآن</span><span class="e">${EP.titleEn} · OUT NOW</span>`;
     else{const s2=Math.floor(ms/1000),D=Math.floor(s2/86400),H=Math.floor(s2/3600)%24,M=Math.floor(s2/60)%60,S=s2%60;
-      html=`<span class="n">${[D,H,M,S].map(AD2).join(" : ")}</span><span class="k">${EP.title} · الألبوم</span><span class="e">${EP.titleEn} · THE EP · ${new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"long"}).format(EP.date).toUpperCase()}</span>`}
+      html=`<span class="n">${[D,H,M,S].map(AD2).join(" : ")}</span>`}
     if(cd.innerHTML!==html)cd.innerHTML=html}
 }
 function EPtap(x,y){
