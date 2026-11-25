@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<script>if(location.protocol==="http:"&&!/^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.)/.test(location.hostname))location.replace("https://"+location.host+location.pathname+location.search+location.hash)</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>غيب القمر</title>
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="غيب القمر · Ghayb al Qamar">
+<meta property="og:image" content="https://ghaybalqamar.com/og.jpg">
+<link rel="preload" as="image" href="disc.webp"><link rel="preload" as="image" href="../ya-leil-type.png">
+<style>
+@font-face{font-family:"KA";src:url("../ka-hand-naskh.ttf") format("truetype");font-display:swap}
+:root{--paper:#e9e6df;--dim:rgba(233,230,223,.62);--line:rgba(233,230,223,.22)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;color:var(--paper);overflow:hidden;overscroll-behavior:none;touch-action:manipulation}
+body{font:300 14px/1.4 "Helvetica Neue",Arial,sans-serif;-webkit-user-select:none;user-select:none}
+#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.12) brightness(.82);opacity:0;transition:opacity 1.2s ease}
+body.live #cam{opacity:1}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 45%,rgba(0,0,0,.72) 100%)}
+.grain{position:fixed;inset:-50%;pointer-events:none;background:url("../grain.png");opacity:.07;mix-blend-mode:screen;animation:gr 1.2s steps(6) infinite}
+@keyframes gr{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-3%)}60%{transform:translate(-2%,-1%)}80%{transform:translate(3%,3%)}}
+#type{position:fixed;left:0;top:0;width:min(64vw,330px);height:auto;pointer-events:none;opacity:0;transform-origin:50% 50%;
+  clip-path:inset(0 0 0 100%);filter:drop-shadow(0 0 14px rgba(255,255,255,.35));will-change:transform}
+body.won #type{opacity:1;clip-path:inset(0 0 0 0);transition:clip-path 2.6s cubic-bezier(.45,0,.2,1) .5s,opacity .6s ease .5s}
+#ui{position:fixed;left:0;right:0;bottom:0;padding:0 max(16px,env(safe-area-inset-right)) max(22px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;pointer-events:none}
+.sub{min-height:44px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:opacity .5s}
+#subAr{font-family:"KA",serif;font-size:21px;line-height:1.2}
+#subEn{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);direction:ltr}
+.btns{display:none;gap:10px;flex-wrap:wrap;justify-content:center;pointer-events:auto}
+body.done .btns{display:flex;animation:up .9s ease both}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.btn{appearance:none;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--paper);border-radius:999px;padding:11px 18px;font:inherit;font-size:12px;
+  letter-spacing:.06em;text-decoration:none;display:inline-flex;gap:8px;align-items:center;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.btn b{font:400 16px/1 "KA",serif;letter-spacing:0}
+.btn.solid{background:var(--paper);color:#000;border-color:var(--paper)}
+/* start screen */
+#intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;padding:24px;text-align:center;background:#000;transition:opacity .9s ease}
+body.live #intro{opacity:0;pointer-events:none}
+#go{appearance:none;border:0;padding:0;background:none;cursor:pointer;width:min(78vw,62vh,440px);aspect-ratio:1;border-radius:50%;animation:breathe 4.5s ease-in-out infinite}
+#go img{width:100%;height:100%;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(233,230,223,.1),0 0 70px rgba(233,230,223,.06)}
+@keyframes breathe{50%{transform:scale(1.018);filter:brightness(1.12)}}
+#intro p{margin:0;display:flex;flex-direction:column;align-items:center;gap:7px}
+#intro p b{font:400 22px/1.2 "KA",serif;color:var(--paper)}
+#intro p span{font-size:10.5px;letter-spacing:.3em;color:var(--dim);direction:ltr}
+</style>
+</head>
+<body>
+<video id="cam" playsinline muted autoplay></video>
+<div class="grain"></div><div class="vig"></div>
+<canvas id="fx"></canvas>
+<img id="type" src="../ya-leil-type.png" alt="يا ليل">
+<div id="ui">
+  <div class="sub"><div id="subAr"></div><div id="subEn"></div></div>
+  <div class="btns">
+    <a class="btn solid" href="../player/"><b>اسمع</b> Listen</a>
+    <a class="btn" href="../ep/"><b>غيب القمر</b> EP</a>
+    <button class="btn" id="again" type="button"><b>تاني</b> Again</button>
+  </div>
+</div>
+<section id="intro">
+  <button id="go" type="button" aria-label="Find the moon · Start"><img src="disc.webp" alt="يا ليل"></button>
+  <p><b>دوّر على القمر</b><span>FIND THE MOON</span></p>
+</section>
+
+<script>
+const CONFIG={title:"يا ليل",titleEn:"Ya Leil",artist:"Zad",snippet:"../ya-leil-snippet.m4a",ambient:"../zad-moon-ambient.m4a",
+  fallback:{lat:30.0444,lng:31.2357},declination:4.5,vfov:63};
+const $=id=>document.getElementById(id),Q=new URLSearchParams(location.search),RAD=Math.PI/180,TEST=Q.has("test");
+const AD=s=>String(s).replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[d]);
+let geo={...CONFIG.fallback};
+
+/* ---------- the real moon: where it is now, for this place (low precision, about a degree) ---------- */
+const DAYMS=864e5,J1970=2440588,J2000=2451545,OBL=RAD*23.4397;
+const raOf=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
+const decOf=(l,b)=>Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+function skyAt(t){   // returns east-north-up unit vectors for the sun and the moon, plus the moon's lit fraction
+  const d=t/DAYMS-.5+J1970-J2000,LST=RAD*(280.46061837+360.98564736629*d)+RAD*geo.lng,phi=geo.lat*RAD;
+  const eq=(ra,dec)=>{const H=LST-ra,alt=Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+    const az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi))+Math.PI;return {alt,az}};
+  const M=RAD*(357.5291+.98560028*d),C=RAD*(1.9148*Math.sin(M)+.02*Math.sin(2*M)+.0003*Math.sin(3*M)),ls=M+C+RAD*102.9372+Math.PI;
+  const sn=Math.sin,cs=Math.cos,Lp=RAD*(218.3165+13.17639648*d),Mp=RAD*(134.9634+13.06499295*d),Ms=RAD*(357.5291+.98560028*d),D=RAD*(297.8502+12.19074912*d),F=RAD*(93.2721+13.22935024*d);
+  const lm=Lp+RAD*(6.289*sn(Mp)+1.274*sn(2*D-Mp)+.658*sn(2*D)+.214*sn(2*Mp)-.186*sn(Ms)-.114*sn(2*F)+.059*sn(2*D-2*Mp)+.057*sn(2*D-Ms-Mp)+.053*sn(2*D+Mp)+.046*sn(2*D-Ms)-.041*sn(Ms-Mp)-.035*sn(D)-.030*sn(Ms+Mp));
+  const bm=RAD*(5.128*sn(F)+.281*sn(Mp+F)+.278*sn(Mp-F)+.173*sn(2*D-F)+.055*sn(2*D-Mp+F)+.046*sn(2*D-Mp-F)+.033*sn(2*D+F)+.017*sn(2*Mp+F));
+  const par=Math.asin(6378.14/(385001-20905*cs(Mp)-3699*cs(2*D-Mp)-2956*cs(2*D)-570*cs(2*Mp)));
+  const m=eq(raOf(lm,bm),decOf(lm,bm)),s=eq(raOf(ls,0),decOf(ls,0)),alt=m.alt-par*Math.cos(m.alt);
+  const enu=(al,az)=>[Math.cos(al)*Math.sin(az),Math.cos(al)*Math.cos(az),Math.sin(al)];
+  const elong=Math.acos(Math.max(-1,Math.min(1,Math.cos(bm)*Math.cos(lm-ls))));
+  return {moon:enu(alt,m.az),moonAlt:alt,sunAlt:s.alt,lit:(1-Math.cos(elong))/2};
+}
+let SKY=skyAt(Date.now());
+function moonRise(){let prev=skyAt(Date.now()).moonAlt;for(let m=10;m<=30*60;m+=10){const t=Date.now()+m*6e4,a=skyAt(t).moonAlt;if(prev<=0&&a>0)return t;prev=a}return null}
+const fmt=(t,loc)=>new Intl.DateTimeFormat(loc,{hour:"numeric",minute:"2-digit"}).format(t);
+
+/* ---------- which way the phone's back camera points (east-north-up), from the motion sensors ---------- */
+const ORI={ok:false,offset:null,F:[0,1,0],R:[1,0,0],U:[0,0,1]};
+const wrap=a=>{a%=360;return a<-180?a+360:a>180?a-360:a};
+function rotMatrix(a,b,g){const cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
+  return [cA*cG-sA*sB*sG,-cB*sA,cG*sA*sB+cA*sG, cG*sA+cA*sB*sG,cA*cB,sA*sG-cA*cG*sB, -cB*sG,sB,cB*cG]}
+const mul=(R,v)=>[R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+function onOrient(e){
+  if(e.alpha==null||e.beta==null)return;
+  let R=rotMatrix(e.alpha*RAD,e.beta*RAD,e.gamma*RAD);
+  if(e.webkitCompassHeading!=null){   // iOS: gyro alpha has an arbitrary zero; settle it against the compass while held up, then keep it steady
+    const upright=Math.abs(e.beta)>50&&Math.abs(e.beta)<130,now=performance.now();
+    const v=upright?mul(R,[0,0,-1]):mul(R,[0,1,0]),rel=Math.atan2(v[0],v[1])/RAD,off=wrap(e.webkitCompassHeading+CONFIG.declination-rel);
+    if(ORI.offset==null)ORI.offset=off;
+    if(upright&&!ORI.t0){ORI.t0=now;ORI.sx=0;ORI.sy=0}
+    if(upright&&now-ORI.t0<2000){ORI.sx+=Math.cos(off*RAD);ORI.sy+=Math.sin(off*RAD);ORI.offset=Math.atan2(ORI.sy,ORI.sx)/RAD}
+    else if(upright){const d=wrap(off-ORI.offset);if(Math.abs(d)>20){ORI.far=ORI.far||now;if(now-ORI.far>2500)ORI.offset=wrap(ORI.offset+d*.03)}else ORI.far=0}
+  }else if(e.absolute||e.type==="deviceorientationabsolute")ORI.offset=CONFIG.declination;
+  else return;   // no reference to north: vision alone
+  const o=-ORI.offset*RAD,c=Math.cos(o),s=Math.sin(o);
+  R=[c*R[0]-s*R[3],c*R[1]-s*R[4],c*R[2]-s*R[5],s*R[0]+c*R[3],s*R[1]+c*R[4],s*R[2]+c*R[5],R[6],R[7],R[8]];
+  const ang=((screen.orientation&&screen.orientation.angle)||window.orientation||0)*RAD;
+  ORI.R=mul(R,[Math.cos(ang),-Math.sin(ang),0]);ORI.U=mul(R,[Math.sin(ang),Math.cos(ang),0]);ORI.F=mul(R,[0,0,-1]);ORI.ok=true;ORI.at=performance.now();
+}
+async function startOrientation(){
+  try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==="function"){const r=await DeviceOrientationEvent.requestPermission();if(r!=="granted")return}}catch(e){return}
+  addEventListener("ondeviceorientationabsolute" in window?"deviceorientationabsolute":"deviceorientation",onOrient);
+}
+
+/* ---------- camera ---------- */
+const video=$("cam");let track=null;
+async function startCam(){
+  if(TEST){video.srcObject=testStream();await video.play().catch(()=>{});return true}
+  try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+    video.srcObject=st;track=st.getVideoTracks()[0];await video.play().catch(()=>{});return true}catch(e){return false}
+}
+function lowerExposure(){   // once locked, darken the picture (where the phone allows it) so the moon's face shows instead of a white disc
+  try{const c=track&&track.getCapabilities&&track.getCapabilities();if(!c||!c.exposureCompensation)return;
+    track.applyConstraints({advanced:[{exposureCompensation:Math.max(c.exposureCompensation.min,-2)}]}).catch(()=>{})}catch(e){}
+}
+function testStream(){   // ?test: a fake night sky with a moon drifting across, to check the finder on a computer
+  const c=document.createElement("canvas");c.width=720;c.height=1280;const g=c.getContext("2d");
+  (function draw(t){g.fillStyle="#07080a";g.fillRect(0,0,720,1280);g.fillStyle="#1a1a1a";g.fillRect(0,1050,720,230);
+    g.fillStyle="#ffd";g.beginPath();g.arc(160,1000,6,0,7);g.fill();   // a street lamp, to be ignored... mostly
+    const x=360+160*Math.sin(t/5200),y=520+90*Math.cos(t/6100);const gr=g.createRadialGradient(x,y,0,x,y,44);gr.addColorStop(0,"#fff");gr.addColorStop(.45,"#fff");gr.addColorStop(.6,"rgba(255,255,255,.35)");gr.addColorStop(1,"rgba(255,255,255,0)");
+    g.fillStyle=gr;g.beginPath();g.arc(x,y,44,0,7);g.fill();requestAnimationFrame(draw)})(0);
+  return c.captureStream(30);
+}
+
+/* ---------- the finder: a bright, round disc with dark sky around it ---------- */
+const AW=200,an=document.createElement("canvas"),ag=an.getContext("2d",{willReadFrequently:true});let AH=0,lum=null,seen=null;
+function detect(){
+  const vw=video.videoWidth,vh=video.videoHeight;if(!vw||!vh)return null;
+  const h=Math.round(AW*vh/vw);if(h!==AH){AH=h;an.width=AW;an.height=AH;lum=new Uint8Array(AW*AH);seen=new Uint8Array(AW*AH)}
+  ag.drawImage(video,0,0,AW,AH);const d=ag.getImageData(0,0,AW,AH).data;let mx=0;
+  for(let i=0,j=0;i<lum.length;i++,j+=4){const v=(d[j]*54+d[j+1]*183+d[j+2]*19)>>8;lum[i]=v;if(v>mx)mx=v}
+  if(mx<150)return null;
+  const T=Math.max(140,mx*.86);seen.fill(0);let best=null,comps=0;const st=[];
+  for(let p=0;p<lum.length&&comps<60;p++){if(seen[p]||lum[p]<T)continue;comps++;
+    let area=0,sx=0,sy=0,x0=AW,x1=0,y0=AH,y1=0,sum=0;st.length=0;st.push(p);seen[p]=1;
+    while(st.length){const q=st.pop(),x=q%AW,y=(q/AW)|0;area++;sx+=x;sy+=y;sum+=lum[q];if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+      if(x>0&&!seen[q-1]&&lum[q-1]>=T){seen[q-1]=1;st.push(q-1)}if(x<AW-1&&!seen[q+1]&&lum[q+1]>=T){seen[q+1]=1;st.push(q+1)}
+      if(y>0&&!seen[q-AW]&&lum[q-AW]>=T){seen[q-AW]=1;st.push(q-AW)}if(y<AH-1&&!seen[q+AW]&&lum[q+AW]>=T){seen[q+AW]=1;st.push(q+AW)}}
+    const bw=x1-x0+1,bh=y1-y0+1,dm=Math.max(bw,bh),r=dm/2;
+    if(dm<2||dm>AW*.3)continue;const asp=bw/bh;if(asp<.45||asp>2.2)continue;
+    const fill=area/(Math.PI*r*r);if(fill<.28)continue;
+    const cx=sx/area,cy=sy/area;let rs=0,rn=0;          // how dark the sky is just around it
+    for(const k of [2.2,3.4])for(let a=0;a<20;a++){const px=Math.round(cx+Math.cos(a*.314)*(r*k+2)),py=Math.round(cy+Math.sin(a*.314)*(r*k+2));
+      if(px<0||py<0||px>=AW||py>=AH)continue;rs+=lum[py*AW+px];rn++}
+    const ring=rn?rs/rn:255;if(ring>T*.55||ring>120)continue;
+    const score=(1-ring/T)*Math.min(1,fill)*(sum/area/255)*(1+Math.min(1,dm/8)*.5);
+    if(!best||score>best.score)best={x:(cx+.5)/AW,y:(cy+.5)/AH,r:r/AW,score};
+  }
+  return best;
+}
+// video → screen (object-fit: cover)
+function toScreen(n){const vw=video.videoWidth,vh=video.videoHeight,W=innerWidth,H=innerHeight,s=Math.max(W/vw,H/vh);
+  return {x:(W-vw*s)/2+n.x*vw*s,y:(H-vh*s)/2+n.y*vh*s,r:n.r*vw*s}}
+// where the sensors say the moon is on screen (or off it)
+function predict(){
+  if(!ORI.ok||performance.now()-ORI.at>1500)return null;
+  const m=SKY.moon,z=dot(m,ORI.F),x=dot(m,ORI.R),y=dot(m,ORI.U),W=innerWidth,H=innerHeight;
+  const f=(Math.max(W,H)/2)/Math.tan(CONFIG.vfov/2*RAD),off=Math.acos(Math.max(-1,Math.min(1,z)))/RAD;
+  return {x:W/2+x/Math.max(z,1e-3)*f,y:H/2-y/Math.max(z,1e-3)*f,front:z>0,off,dx:x,dy:y};
+}
+
+/* ---------- sound ---------- */
+const audio={};
+function audioInit(){
+  try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  const A=window.AudioContext||window.webkitAudioContext;if(!A||audio.ctx)return;audio.ctx=new A();
+  const mk=(src,loop,vol)=>{const el=new Audio(src);el.loop=loop;el.preload="auto";el.playsInline=true;const g=audio.ctx.createGain();g.gain.value=vol;
+    audio.ctx.createMediaElementSource(el).connect(g).connect(audio.ctx.destination);return {el,g}};
+  audio.amb=mk(CONFIG.ambient,true,0);audio.song=mk(CONFIG.snippet,false,0);
+  audio.amb.el.play().then(()=>ramp(audio.amb.g,.32,2.5)).catch(()=>{});
+  audio.song.el.play().then(()=>{audio.song.el.pause();audio.song.el.currentTime=0}).catch(()=>{});   // unlock it inside the tap (iOS)
+  audio.song.el.addEventListener("ended",()=>{document.body.classList.add("done");say(["اسمع الأغنية كاملة","Hear the full song"]);ramp(audio.amb.g,.25,3)});
+}
+function ramp(g,v,s){const t=audio.ctx.currentTime;g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(g.gain.value,t);g.gain.linearRampToValueAtTime(v,t+s)}
+function playSong(){if(!audio.ctx)return;audio.ctx.resume();ramp(audio.amb.g,0,1.5);const s=audio.song;s.el.currentTime=0;s.g.gain.value=0;s.el.play().catch(()=>{});ramp(s.g,1,1.2)}
+
+/* ---------- words ---------- */
+let sayKey="";
+function say(p){const k=p.join("|");if(k===sayKey)return;sayKey=k;$("subAr").textContent=p[0];$("subEn").textContent=p[1]}
+
+/* ---------- the loop ---------- */
+const fx=$("fx"),g=fx.getContext("2d");let DPR=1;
+function resize(){DPR=Math.min(2,devicePixelRatio||1);fx.width=innerWidth*DPR;fx.height=innerHeight*DPR}
+addEventListener("resize",resize);resize();
+const S={phase:"intro",hold:0,ret:{x:innerWidth/2,y:innerHeight*.42,r:52},cand:null,lastCand:0,won:0,lockAt:null,flare:0,aim:0};
+let frameN=0,lastT=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-lastT)/1000);lastT=now;frameN++;
+  if(S.phase!=="intro"){
+    if(frameN%30===0)SKY=skyAt(Date.now());
+    const P=predict(),up=SKY.moonAlt>-.6*RAD;
+    let c=null;if(frameN%2===0&&video.readyState>=2){const n=detect();if(n){c=toScreen(n);c.score=n.score}}
+    // with the sensors working, a bright spot only counts if it is roughly where the real moon is (street lamps, windows)
+    if(c&&P){const far=P.front?Math.hypot(c.x-P.x,c.y-P.y)/Math.max(innerWidth,innerHeight):9;if(!up||far>.42)c=null}
+    if(frameN%2===0){
+      if(c){const near=S.cand&&Math.hypot(c.x-S.cand.x,c.y-S.cand.y)<Math.max(40,Math.min(innerWidth,innerHeight)*.16);S.hold=near?Math.min(1,S.hold+dt*2*1.1):Math.max(.1,S.hold*.5);S.cand=c;S.lastCand=now}
+      else if(now-S.lastCand>500){S.hold=Math.max(0,S.hold-dt*2*1.6);if(now-S.lastCand>900)S.cand=null}
+    }
+    // cloud or daylight: holding the phone right on the real moon for a moment also finds it
+    if(P&&up&&P.front&&P.off<6&&!S.cand){S.aim+=dt;if(S.aim>1.6&&S.phase==="seek")win({x:P.x,y:P.y,r:Math.max(10,innerWidth*.03)})}else S.aim=Math.max(0,S.aim-dt*2);
+    if(S.phase==="seek"){
+      if(S.hold>=1&&S.cand)win(S.cand);
+      else if(S.cand)say(["ثبّت الموبايل…","Hold still…"]);
+      else if(P&&!up){const r=moonRise();say(r?["القمر غايب دلوقتي · هيطلع الساعة "+AD(fmt(r,"en-GB")),"The moon is away · it rises at "+fmt(r,"en-GB")]:["القمر غايب دلوقتي","The moon is away tonight"])}
+      else if(P&&(!P.front||P.off>CONFIG.vfov*.45))say(guideWords(P));
+      else say(["دوّر على القمر في السما","Find the moon in the sky"]);
+    }
+    // the ring: follows the moon once it has it, otherwise drifts back to the middle
+    const tgt=S.phase==="won"?(S.cand&&now-S.lastCand<600?S.cand:(S.lockAt||S.ret)):(S.cand||{x:innerWidth/2,y:innerHeight*.42,r:0});
+    const tr=S.phase==="won"?Math.max(30,(tgt.r||12)*2.4):S.cand?Math.max(30,S.cand.r*2.4):52;
+    const k=1-Math.exp(-dt*(S.phase==="won"?7:5));S.ret.x+=(tgt.x-S.ret.x)*k;S.ret.y+=(tgt.y-S.ret.y)*k;S.ret.r+=(tr-S.ret.r)*k;
+    if(S.phase==="won"&&S.cand&&now-S.lastCand<600)S.lockAt={x:S.cand.x,y:S.cand.y,r:S.cand.r};
+    draw(now,P,up);placeType();
+  }
+  requestAnimationFrame(loop);
+}
+function guideWords(P){
+  if(!P.front&&Math.abs(P.dx)<.35)return ["القمر وراك · لف","The moon is behind you · turn around"];
+  if(Math.abs(P.dx)>Math.abs(P.dy))return P.dx>0?["القمر على إيدك اليمين","The moon is to your right"]:["القمر على إيدك الشمال","The moon is to your left"];
+  return P.dy>0?["ارفع الموبايل لفوق","Tilt the phone up"]:["نزّل الموبايل شوية","Tilt the phone down"];
+}
+function win(c){
+  S.phase="won";S.won=performance.now();S.cand=S.cand||c;S.lockAt={x:c.x,y:c.y,r:c.r};S.ret.x=c.x;S.ret.y=c.y;
+  document.body.classList.add("won");say([CONFIG.title+" · زاد",CONFIG.titleEn+" · "+CONFIG.artist]);
+  try{navigator.vibrate&&navigator.vibrate([18,60,30])}catch(e){}
+  playSong();lowerExposure();
+}
+function draw(now,P,up){
+  const W=innerWidth,H=innerHeight;g.setTransform(DPR,0,0,DPR,0,0);g.clearRect(0,0,W,H);
+  const {x,y,r}=S.ret,won=S.phase==="won",t=now/1000,since=won?(now-S.won)/1000:0;
+  // dotted ring: dots light up as it holds on
+  const n=40,lit=won?n:Math.round(S.hold*n),spin=won?t*.05:t*.25;
+  for(let i=0;i<n;i++){const a=spin+i/n*Math.PI*2,on=i<lit;g.fillStyle=on?"rgba(240,238,232,.95)":"rgba(240,238,232,.28)";
+    const rr=r*(won?1+.04*Math.sin(t*1.6):1);g.beginPath();g.arc(x+Math.cos(a)*rr,y+Math.sin(a)*rr,on?1.6:1.1,0,7);g.fill()}
+  if(won){
+    // the flare when it locks, then a soft halo that breathes
+    const f=Math.max(0,1-since/1.4);
+    if(f>0){const R=r*(1+since*5);const gr=g.createRadialGradient(x,y,0,x,y,R);gr.addColorStop(0,`rgba(255,255,255,${.55*f})`);gr.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gr;g.beginPath();g.arc(x,y,R,0,7);g.fill();
+      g.strokeStyle=`rgba(240,238,232,${.6*f})`;g.lineWidth=1;g.beginPath();g.arc(x,y,r*(1+since*3.2),0,7);g.stroke()}
+    const hr=r*2.2,gh=g.createRadialGradient(x,y,r*.6,x,y,hr);gh.addColorStop(0,`rgba(255,255,255,${.1+.04*Math.sin(t*1.3)})`);gh.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gh;g.beginPath();g.arc(x,y,hr,0,7);g.fill();
+    // a hairline from the moon up to the title
+    const ty=typeBox.y+typeBox.h;if(ty<y-r){g.strokeStyle="rgba(240,238,232,.35)";g.lineWidth=1;g.beginPath();g.moveTo(x,y-r*1.25);g.lineTo(x,Math.max(ty+6,y-r*1.25-80*Math.min(1,since/1.5)));g.stroke()}
+  }else if(P&&up&&(!P.front||P.off>CONFIG.vfov*.45||P.x<0||P.x>W||P.y<0||P.y>H)){
+    // off screen: a chevron at the edge pointing the way
+    let ax=P.dx,ay=-P.dy;if(!P.front&&Math.hypot(ax,ay)<.2)ax=1;const L=Math.hypot(ax,ay)||1;ax/=L;ay/=L;
+    const m=46,cx=W/2,cy=H/2,s=Math.min((W/2-m)/Math.abs(ax||1e-6),(H/2-m-70)/Math.abs(ay||1e-6));const px=cx+ax*s,py=cy+ay*s,an=Math.atan2(ay,ax),pu=.5+.5*Math.sin(t*3);
+    g.save();g.translate(px,py);g.rotate(an);g.strokeStyle=`rgba(240,238,232,${.5+.4*pu})`;g.lineWidth=1.5;g.beginPath();g.moveTo(-9,-11);g.lineTo(3,0);g.lineTo(-9,11);g.moveTo(-19,-11);g.lineTo(-7,0);g.lineTo(-19,11);g.stroke();g.restore();
+  }
+}
+// the calligraphy sits above the moon (below it if the moon is near the top), and follows it
+const type=$("type");const typeBox={x:0,y:0,w:0,h:0};
+function placeType(){
+  if(S.phase!=="won")return;const W=innerWidth,H=innerHeight,w=type.offsetWidth,h=type.offsetHeight,{x,y,r}=S.ret;
+  let ty=y-r*1.25-90-h;if(ty<Math.max(18,H*.06))ty=y+r*1.4+24;let tx=Math.min(W-w-12,Math.max(12,x-w/2));
+  typeBox.x=tx;typeBox.y=ty;typeBox.w=w;typeBox.h=h;type.style.transform=`translate(${tx}px,${ty}px)`;
+}
+
+/* ---------- start ---------- */
+$("go").addEventListener("click",async()=>{
+  audioInit();startOrientation();
+  navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{geo={lat:p.coords.latitude,lng:p.coords.longitude};SKY=skyAt(Date.now())},()=>{},{timeout:8000,maximumAge:6e5});
+  const ok=await startCam();
+  if(!ok){$("intro").querySelector("p").innerHTML="<b>محتاجين الكاميرا عشان نلاقي القمر</b><span>ALLOW THE CAMERA · TAP TO TRY AGAIN</span>";return}
+  document.body.classList.add("live");S.phase="seek";say(["دوّر على القمر في السما","Find the moon in the sky"]);
+});
+$("again").addEventListener("click",()=>{document.body.classList.remove("won","done");S.phase="seek";S.hold=0;S.cand=null;S.aim=0;
+  if(audio.song){audio.song.el.pause();ramp(audio.amb.g,.32,2)}say(["دوّر على القمر في السما","Find the moon in the sky"])});
+document.addEventListener("visibilitychange",()=>{if(!audio.ctx)return;if(document.hidden){audio.amb.el.pause();audio.song.el.pause()}else{audio.ctx.resume();if(S.phase==="won"&&!audio.song.el.ended&&audio.song.el.currentTime>0)audio.song.el.play().catch(()=>{});else audio.amb.el.play().catch(()=>{})}});
+
+if(Q.has("debug"))window.__m={S,ORI,audio,SKY:()=>SKY,detect,predict,win};
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
